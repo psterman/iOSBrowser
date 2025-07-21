@@ -16,6 +16,22 @@
 		34503E732E2343E4006CF9FF /* iOSBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E722E2343E4006CF9FF /* iOSBrowserTests.swift */; };
 		34503E7D2E2343E4006CF9FF /* iOSBrowserUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E7C2E2343E4006CF9FF /* iOSBrowserUITests.swift */; };
 		34503E7F2E2343E4006CF9FF /* iOSBrowserUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E7E2E2343E4006CF9FF /* iOSBrowserUITestsLaunchTests.swift */; };
+		34503E8D2E2346DF006CF9FF /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E8B2E2346DF006CF9FF /* WebView.swift */; };
+		34503E8E2E2346DF006CF9FF /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E8B2E2346DF006CF9FF /* WebView.swift */; };
+		34503E8F2E2346DF006CF9FF /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E8B2E2346DF006CF9FF /* WebView.swift */; };
+		34503E902E2346DF006CF9FF /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E8C2E2346DF006CF9FF /* SearchEngine.swift */; };
+		34503E912E2346DF006CF9FF /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E8C2E2346DF006CF9FF /* SearchEngine.swift */; };
+		34503E922E2346DF006CF9FF /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E8C2E2346DF006CF9FF /* SearchEngine.swift */; };
+		34503E942E2352E8006CF9FF /* WebViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E932E2352E7006CF9FF /* WebViewModel.swift */; };
+		34503E952E2352E8006CF9FF /* WebViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E932E2352E7006CF9FF /* WebViewModel.swift */; };
+		34503E962E2352E8006CF9FF /* WebViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503E932E2352E7006CF9FF /* WebViewModel.swift */; };
+		34503E982E23CBE7006CF9FF /* chat.html in Resources */ = {isa = PBXBuildFile; fileRef = 34503E972E23CBE6006CF9FF /* chat.html */; };
+		34503E992E23CBE7006CF9FF /* chat.html in Resources */ = {isa = PBXBuildFile; fileRef = 34503E972E23CBE6006CF9FF /* chat.html */; };
+		34503E9A2E23CBE7006CF9FF /* chat.html in Resources */ = {isa = PBXBuildFile; fileRef = 34503E972E23CBE6006CF9FF /* chat.html */; };
+		34503EA52E2400B1006CF9FF /* AIContactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA12E2400A1006CF9FF /* AIContactsView.swift */; };
+		34503EA62E2400B2006CF9FF /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA22E2400A2006CF9FF /* BrowserView.swift */; };
+		34503EA72E2400B3006CF9FF /* MomentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA32E2400A3006CF9FF /* MomentsView.swift */; };
+		34503EA82E2400B4006CF9FF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA42E2400A4006CF9FF /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,6 +52,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		340835642E2680EB0005956D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		34503E592E2343E1006CF9FF /* iOSBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iOSBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		34503E5C2E2343E1006CF9FF /* iOSBrowserApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSBrowserApp.swift; sourceTree = "<group>"; };
 		34503E5E2E2343E1006CF9FF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -48,6 +65,14 @@
 		34503E782E2343E4006CF9FF /* iOSBrowserUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iOSBrowserUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		34503E7C2E2343E4006CF9FF /* iOSBrowserUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSBrowserUITests.swift; sourceTree = "<group>"; };
 		34503E7E2E2343E4006CF9FF /* iOSBrowserUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSBrowserUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		34503E8B2E2346DF006CF9FF /* WebView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
+		34503E8C2E2346DF006CF9FF /* SearchEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SearchEngine.swift; sourceTree = "<group>"; };
+		34503E932E2352E7006CF9FF /* WebViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebViewModel.swift; sourceTree = "<group>"; };
+		34503E972E23CBE6006CF9FF /* chat.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = chat.html; sourceTree = "<group>"; };
+		34503EA12E2400A1006CF9FF /* AIContactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContactsView.swift; sourceTree = "<group>"; };
+		34503EA22E2400A2006CF9FF /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
+		34503EA32E2400A3006CF9FF /* MomentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentsView.swift; sourceTree = "<group>"; };
+		34503EA42E2400A4006CF9FF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,8 +123,17 @@
 		34503E5B2E2343E1006CF9FF /* iOSBrowser */ = {
 			isa = PBXGroup;
 			children = (
+				340835642E2680EB0005956D /* Info.plist */,
+				34503E972E23CBE6006CF9FF /* chat.html */,
+				34503E932E2352E7006CF9FF /* WebViewModel.swift */,
+				34503E8C2E2346DF006CF9FF /* SearchEngine.swift */,
+				34503E8B2E2346DF006CF9FF /* WebView.swift */,
 				34503E5C2E2343E1006CF9FF /* iOSBrowserApp.swift */,
 				34503E5E2E2343E1006CF9FF /* ContentView.swift */,
+				34503EA12E2400A1006CF9FF /* AIContactsView.swift */,
+				34503EA22E2400A2006CF9FF /* BrowserView.swift */,
+				34503EA32E2400A3006CF9FF /* MomentsView.swift */,
+				34503EA42E2400A4006CF9FF /* SettingsView.swift */,
 				34503E602E2343E4006CF9FF /* Assets.xcassets */,
 				34503E652E2343E4006CF9FF /* Persistence.swift */,
 				34503E672E2343E4006CF9FF /* iOSBrowser.xcdatamodeld */,
@@ -214,11 +248,12 @@
 			};
 			buildConfigurationList = 34503E542E2343E1006CF9FF /* Build configuration list for PBXProject "iOSBrowser" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = 34503E502E2343E1006CF9FF;
 			productRefGroup = 34503E5A2E2343E1006CF9FF /* Products */;
@@ -237,6 +272,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34503E982E23CBE7006CF9FF /* chat.html in Resources */,
 				34503E642E2343E4006CF9FF /* Preview Assets.xcassets in Resources */,
 				34503E612E2343E4006CF9FF /* Assets.xcassets in Resources */,
 			);
@@ -246,6 +282,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34503E992E23CBE7006CF9FF /* chat.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,6 +290,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34503E9A2E23CBE7006CF9FF /* chat.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -264,9 +302,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				34503E662E2343E4006CF9FF /* Persistence.swift in Sources */,
+				34503E8D2E2346DF006CF9FF /* WebView.swift in Sources */,
 				34503E5F2E2343E1006CF9FF /* ContentView.swift in Sources */,
+				34503E902E2346DF006CF9FF /* SearchEngine.swift in Sources */,
 				34503E692E2343E4006CF9FF /* iOSBrowser.xcdatamodeld in Sources */,
 				34503E5D2E2343E1006CF9FF /* iOSBrowserApp.swift in Sources */,
+				34503E942E2352E8006CF9FF /* WebViewModel.swift in Sources */,
+				34503EA52E2400B1006CF9FF /* AIContactsView.swift in Sources */,
+				34503EA62E2400B2006CF9FF /* BrowserView.swift in Sources */,
+				34503EA72E2400B3006CF9FF /* MomentsView.swift in Sources */,
+				34503EA82E2400B4006CF9FF /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,7 +319,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34503E912E2346DF006CF9FF /* SearchEngine.swift in Sources */,
 				34503E732E2343E4006CF9FF /* iOSBrowserTests.swift in Sources */,
+				34503E8E2E2346DF006CF9FF /* WebView.swift in Sources */,
+				34503E952E2352E8006CF9FF /* WebViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,7 +330,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34503E8F2E2346DF006CF9FF /* WebView.swift in Sources */,
+				34503E922E2346DF006CF9FF /* SearchEngine.swift in Sources */,
 				34503E7D2E2343E4006CF9FF /* iOSBrowserUITests.swift in Sources */,
+				34503E962E2352E8006CF9FF /* WebViewModel.swift in Sources */,
 				34503E7F2E2343E4006CF9FF /* iOSBrowserUITestsLaunchTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -428,9 +479,13 @@
 				DEVELOPMENT_TEAM = DPW6TTCK33;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = iOSBrowser/Info.plist;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "App需要您的许可才能使用麦克风进行语音输入";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "App需要您的许可才能进行语音识别，将您的语音转换为文字";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -457,9 +512,13 @@
 				DEVELOPMENT_TEAM = DPW6TTCK33;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = iOSBrowser/Info.plist;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "App需要您的许可才能使用麦克风进行语音输入";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "App需要您的许可才能进行语音识别，将您的语音转换为文字";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDarkContent;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (

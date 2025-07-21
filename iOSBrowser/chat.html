@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AI Chat</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-dark: #000000;
+            --sidebar-bg: #f7f7f7;
+            --border-color: #e5e5e5;
+            --icon-color: #8a8a8e;
+            --user-msg-bg: #007aff;
+            --bot-msg-bg: #f0f0f0;
+            --text-light: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --text-dark: #ffffff;
+                --sidebar-bg: #1c1c1e;
+                --border-color: #38383a;
+                --icon-color: #8d8d92;
+                --user-msg-bg: #0a84ff;
+                --bot-msg-bg: #2c2c2e;
+            }
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+        }
+
+        #app-container {
+            display: flex;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 240px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 100;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #sidebar.visible {
+            transform: translateX(0);
+        }
+
+        #sidebar h3 {
+            margin: 10px 0;
+        }
+
+        #search-history {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            box-sizing: border-box;
+        }
+
+        #history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        #history-list li {
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        #history-list li:hover,
+        #history-list li.active {
+            background-color: rgba(128, 128, 128, 0.2);
+        }
+
+        #main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            transition: margin-left 0.3s ease;
+        }
+
+        #app-container.sidebar-visible #main-content {
+            margin-left: 240px;
+        }
+
+        #chat-header {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        #menu-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        #menu-toggle svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--icon-color);
+        }
+
+        #chat-title {
+            margin: 0;
+            margin-left: 10px;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        #chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            max-width: 85%;
+        }
+
+        .message-bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            align-self: flex-end;
+        }
+
+        .user-message .message-bubble {
+            background-color: var(--user-msg-bg);
+            color: var(--text-light);
+        }
+
+        .bot-message {
+            align-self: flex-start;
+        }
+
+        .bot-message .message-bubble {
+            background-color: var(--bot-msg-bg);
+        }
+
+        .message-actions {
+            opacity: 0;
+            transition: opacity 0.2s;
+            padding-top: 8px;
+            align-self: flex-start;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .action-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .action-button svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--icon-color);
+        }
+
+        .action-button.favorited svg {
+            fill: #ffcc00;
+        }
+
+        #input-area {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            border-radius: 18px;
+            border: 1px solid var(--border-color);
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+        }
+
+        #send-button {
+            background-color: var(--user-msg-bg);
+            color: var(--text-light);
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            margin-left: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app-container">
+        <div id="sidebar">
+            <h3>History</h3>
+            <input type="search" id="search-history" placeholder="Search history...">
+            <ul id="history-list">
+                <li class="active">How to use SwiftUI</li>
+                <li>Capital of Japan</li>
+            </ul>
+        </div>
+        <div id="main-content">
+            <div id="chat-header">
+                <button id="menu-toggle" title="Toggle History">
+                    <svg viewBox="0 0 100 80" width="40" height="40">
+                        <rect width="100" height="15"></rect>
+                        <rect y="30" width="100" height="15"></rect>
+                        <rect y="60" width="100" height="15"></rect>
+                    </svg>
+                </button>
+                <h2 id="chat-title">How to use SwiftUI</h2>
+            </div>
+            <div id="chat-container">
+                <div class="message user-message">
+                    <div class="message-bubble">Tell me how to use SwiftUI.</div>
+                </div>
+                <div class="message bot-message">
+                    <div class="message-bubble">SwiftUI is a modern way to declare user interfaces for any Apple
+                        platform. Create beautiful, dynamic apps faster than ever before.</div>
+                    <div class="message-actions">
+                        <button class="action-button favorited" title="Favorite">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                            </svg>
+                        </button>
+                        <button class="action-button" title="Share">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
+                            </svg>
+                        </button>
+                        <button class="action-button" title="Read Aloud">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                            </svg>
+                        </button>
+                        <button class="action-button" title="Regenerate">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="input-area">
+                <input type="text" id="chat-input" placeholder="Type a message...">
+                <button id="send-button" title="Send">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // --- DOM Elements ---
+        const appContainer = document.getElementById('app-container');
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+        const searchHistoryInput = document.getElementById('search-history');
+        const historyList = document.getElementById('history-list');
+        const chatTitle = document.getElementById('chat-title');
+        const chatContainer = document.getElementById('chat-container');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+
+        // --- State ---
+        let apiKey, apiEndpoint, modelName;
+        let conversationHistory = [];
+        let currentConversationId = null;
+        const synth = window.speechSynthesis;
+
+        // --- Swift Interface ---
+        function setApiDetails(key, endpoint, model) {
+            apiKey = key; apiEndpoint = endpoint; modelName = model;
+            loadHistory();
+            if (conversationHistory.length === 0) {
+                startNewConversation();
+            } else {
+                loadConversation(conversationHistory[0].id);
+            }
+        }
+
+        // --- Event Listeners ---
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('visible');
+            appContainer.classList.toggle('sidebar-visible');
+        });
+        sendButton.addEventListener('click', () => sendMessage(false));
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(false);
+            }
+        });
+        searchHistoryInput.addEventListener('input', (e) => renderHistoryList(e.target.value));
+
+        // --- History & Conversation Management ---
+        function saveHistory() { if (modelName) localStorage.setItem(`ai_chat_history_${modelName}`, JSON.stringify(conversationHistory)); }
+        function loadHistory() {
+            if (!modelName) return;
+            const saved = localStorage.getItem(`ai_chat_history_${modelName}`);
+            conversationHistory = saved ? JSON.parse(saved) : [];
+        }
+
+        function renderHistoryList(searchTerm = '') {
+            historyList.innerHTML = '';
+            conversationHistory
+                .filter(c => c.title && c.title.toLowerCase().includes(searchTerm.toLowerCase()))
+                .forEach(c => {
+                    const li = document.createElement('li');
+                    li.textContent = c.title;
+                    li.dataset.id = c.id;
+                    li.className = c.id === currentConversationId ? 'active' : '';
+                    li.onclick = () => loadConversation(c.id);
+                    historyList.appendChild(li);
+                });
+        }
+
+        function startNewConversation() {
+            currentConversationId = `conv_${Date.now()}`;
+            const newConversation = { id: currentConversationId, title: 'New Conversation', messages: [] };
+            conversationHistory.unshift(newConversation);
+            loadConversation(currentConversationId);
+            saveHistory();
+            renderHistoryList();
+        }
+
+        function loadConversation(id) {
+            if (synth.speaking) synth.cancel();
+            const conversation = conversationHistory.find(c => c.id === id);
+            if (!conversation) return;
+            currentConversationId = id;
+            chatTitle.textContent = conversation.title;
+            chatContainer.innerHTML = '';
+            conversation.messages.forEach(renderMessage);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            renderHistoryList();
+        }
+
+        function renderMessage(msgData) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${msgData.role}-message`;
+            msgDiv.dataset.messageId = msgData.id;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            bubble.innerText = msgData.content;
+            msgDiv.appendChild(bubble);
+
+            if (msgData.role === 'assistant') {
+                const actions = document.createElement('div');
+                actions.className = 'message-actions';
+                actions.innerHTML = `
+                    <button class="action-button ${msgData.isFavorite ? 'favorited' : ''}" onclick="toggleFavorite('${msgData.id}')" title="Favorite"><svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></button>
+                    <button class="action-button" onclick="shareMessage(this)" title="Share"><svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></button>
+                    <button class="action-button" onclick="speakMessage(this)" title="Read Aloud"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></button>
+                    <button class="action-button" onclick="regenerateResponse()" title="Regenerate"><svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+                `;
+                msgDiv.appendChild(actions);
+            }
+            chatContainer.appendChild(msgDiv);
+        }
+
+        async function sendMessage(isRegenerating = false) {
+            const conversation = conversationHistory.find(c => c.id === currentConversationId);
+            if (!conversation) return;
+
+            let messageText;
+            if (isRegenerating) {
+                const lastUserMessage = [...conversation.messages].reverse().find(m => m.role === 'user');
+                if (!lastUserMessage) return;
+                messageText = lastUserMessage.content;
+                const lastUserIndex = conversation.messages.lastIndexOf(lastUserMessage);
+                conversation.messages.splice(lastUserIndex + 1);
+                loadConversation(currentConversationId);
+            } else {
+                messageText = chatInput.value.trim();
+                if (messageText === '') return;
+                const userMessage = { id: `msg_${Date.now()}`, role: 'user', content: messageText };
+                conversation.messages.push(userMessage);
+                if (conversation.title === 'New Conversation') {
+                    conversation.title = messageText.length > 25 ? messageText.substring(0, 22) + '...' : messageText;
+                    chatTitle.textContent = conversation.title;
+                }
+                renderMessage(userMessage);
+                renderHistoryList();
+            }
+
+            chatInput.value = '';
+            addTypingIndicator();
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            try {
+                const messagesForApi = conversation.messages.map(({ role, content }) => ({ role, content }));
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model: modelName, messages: messagesForApi, stream: false })
+                });
+                removeTypingIndicator();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: { message: `HTTP error! Status: ${response.status}` } }));
+                    throw new Error(errorData.error.message);
+                }
+                const data = await response.json();
+                const botReply = { id: `msg_${Date.now()}`, role: 'assistant', content: data.choices[0].message.content, isFavorite: false };
+                conversation.messages.push(botReply);
+                renderMessage(botReply);
+            } catch (error) {
+                removeTypingIndicator();
+                const errorMsg = { id: `msg_${Date.now()}`, role: 'assistant', content: `Error: ${error.message}`, isFavorite: false };
+                conversation.messages.push(errorMsg);
+                renderMessage(errorMsg);
+            } finally {
+                saveHistory();
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        // --- Action Implementations ---
+        window.toggleFavorite = (msgId) => {
+            const conversation = conversationHistory.find(c => c.id === currentConversationId);
+            const message = conversation?.messages.find(m => m.id === msgId);
+            if (message) {
+                message.isFavorite = !message.isFavorite;
+                saveHistory();
+                loadConversation(currentConversationId); // Re-render to update star
+            }
+        };
+        window.shareMessage = (buttonElement) => {
+            const content = buttonElement.closest('.message').querySelector('.message-bubble').innerText;
+            if (navigator.share) {
+                navigator.share({ title: 'AI Chat Response', text: content }).catch(err => console.error("Share failed:", err));
+            } else {
+                alert("Share functionality is not supported in this context.");
+            }
+        };
+        window.speakMessage = (buttonElement) => {
+            if (synth.speaking) { synth.cancel(); return; }
+            const content = buttonElement.closest('.message').querySelector('.message-bubble').innerText;
+            const utterance = new SpeechSynthesisUtterance(content);
+            synth.speak(utterance);
+        };
+        window.regenerateResponse = () => sendMessage(true);
+
+        // --- Utility Functions ---
+        function addTypingIndicator() {
+            if (document.getElementById('typing-indicator')) return;
+            const indicatorHtml = `<div class="message bot-message" id="typing-indicator"><div class="message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div></div>`;
+            chatContainer.insertAdjacentHTML('beforeend', indicatorHtml);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+        const style = document.createElement('style');
+        style.textContent = `.typing-indicator { display: flex; align-items: center; justify-content: center; height:18px; } .typing-indicator span { width: 7px; height: 7px; margin: 0 2px; background-color: var(--icon-color); border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite ease-in-out both; } .typing-indicator span:nth-of-type(1) { animation-delay: -0.32s; } .typing-indicator span:nth-of-type(2) { animation-delay: -0.16s; } @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }`;
+        document.head.appendChild(style);
+    </script>
+</body>
+
+</html>
