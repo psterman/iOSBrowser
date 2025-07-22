@@ -8,6 +8,64 @@
 import SwiftUI
 import UIKit
 
+// 收藏消息数据结构
+struct FavoriteMessage: Identifiable, Codable {
+    let id: String
+    let content: String
+    let contactName: String
+    let contactId: String
+    let timestamp: Date
+    let isFromUser: Bool
+
+    init(from message: ChatMessage, contactName: String, contactId: String) {
+        self.id = message.id
+        self.content = message.content
+        self.contactName = contactName
+        self.contactId = contactId
+        self.timestamp = message.timestamp
+        self.isFromUser = message.isFromUser
+    }
+}
+
+// 收藏管理器
+class FavoritesManager: ObservableObject {
+    static let shared = FavoritesManager()
+
+    @Published var favorites: [FavoriteMessage] = []
+
+    private init() {
+        loadFavorites()
+    }
+
+    func addFavorite(_ message: ChatMessage, contactName: String, contactId: String) {
+        let favorite = FavoriteMessage(from: message, contactName: contactName, contactId: contactId)
+        favorites.append(favorite)
+        saveFavorites()
+    }
+
+    func removeFavorite(_ messageId: String) {
+        favorites.removeAll { $0.id == messageId }
+        saveFavorites()
+    }
+
+    func isFavorite(_ messageId: String) -> Bool {
+        return favorites.contains { $0.id == messageId }
+    }
+
+    private func saveFavorites() {
+        if let data = try? JSONEncoder().encode(favorites) {
+            UserDefaults.standard.set(data, forKey: "favoriteMessages")
+        }
+    }
+
+    private func loadFavorites() {
+        if let data = UserDefaults.standard.data(forKey: "favoriteMessages"),
+           let savedFavorites = try? JSONDecoder().decode([FavoriteMessage].self, from: data) {
+            favorites = savedFavorites
+        }
+    }
+}
+
 // API配置管理器
 class APIConfigManager: ObservableObject {
     static let shared = APIConfigManager()
@@ -141,38 +199,39 @@ enum AIFeature: String, CaseIterable {
     case search = "搜索"
 }
 
-struct ChatMessage: Identifiable {
+struct ChatMessage: Identifiable, Codable {
     let id: String
-    let content: String
+    var content: String // 改为var以支持编辑
     let isFromUser: Bool
     let timestamp: Date
     var status: MessageStatus
-    var actions: [MessageAction] = []
+    var actions: [MessageAction]
+    var isHistorical: Bool = false // 标识是否为历史消息 = []
 }
 
-enum MessageStatus {
+enum MessageStatus: Codable {
     case sending
     case sent
     case delivered
     case failed
 }
 
-enum MessageAction: CaseIterable {
+enum MessageAction: CaseIterable, Codable {
     case forward
     case share
+    case copy
     case edit
     case delete
     case favorite
-    case quote
 
     var icon: String {
         switch self {
         case .forward: return "arrowshape.turn.up.right"
         case .share: return "square.and.arrow.up"
+        case .copy: return "doc.on.doc"
         case .edit: return "pencil"
         case .delete: return "trash"
         case .favorite: return "heart"
-        case .quote: return "quote.bubble"
         }
     }
 
@@ -180,10 +239,10 @@ enum MessageAction: CaseIterable {
         switch self {
         case .forward: return "转发"
         case .share: return "分享"
+        case .copy: return "复制"
         case .edit: return "编辑"
         case .delete: return "删除"
         case .favorite: return "收藏"
-        case .quote: return "引用"
         }
     }
 }
@@ -198,28 +257,21 @@ struct AIContactsView: View {
         AIContact(id: "moonshot", name: "Kimi", description: "月之暗面，超长上下文AI", model: "moonshot-v1-128k", avatar: "moon.stars.fill", isOnline: true, apiEndpoint: "https://api.moonshot.cn", requiresApiKey: true, supportedFeatures: [.textGeneration, .summarization], color: .orange),
         AIContact(id: "doubao", name: "豆包", description: "字节跳动AI助手，多场景应用", model: "doubao-pro-128k", avatar: "leaf.fill", isOnline: true, apiEndpoint: "https://ark.cn-beijing.volces.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .translation], color: .green),
         AIContact(id: "wenxin", name: "文心一言", description: "百度ERNIE大模型", model: "ernie-4.0-turbo", avatar: "doc.text.fill", isOnline: true, apiEndpoint: "https://aip.baidubce.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .translation, .summarization], color: .red),
-        AIContact(id: "spark", name: "讯飞星火", description: "科大讯飞认知大模型", model: "spark-max", avatar: "sparkles", isOnline: true, apiEndpoint: "https://spark-api.xf-yun.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .orange),
-        AIContact(id: "baichuan", name: "百川智能", description: "百川大模型，企业级应用", model: "baichuan2-turbo", avatar: "mountain.2.fill", isOnline: true, apiEndpoint: "https://api.baichuan-ai.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .brown),
-        AIContact(id: "minimax", name: "MiniMax", description: "海螺AI，ABAB系列模型", model: "abab6.5-chat", avatar: "waveform", isOnline: true, apiEndpoint: "https://api.minimax.chat", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .mint),
 
-        // 🌐 硅基流动提供的千问模型
+        // 🌐 硅基流动提供的免费模型
         AIContact(id: "siliconflow-qwen", name: "千问-硅基流动", description: "硅基流动提供的通义千问模型", model: "Qwen/Qwen2.5-72B-Instruct", avatar: "cloud.fill", isOnline: true, apiEndpoint: "https://api.siliconflow.cn", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .cyan),
 
-        // 🌍 国际主流AI服务商（都有可购买的API）
+        // 🌍 国际主流AI服务商
         AIContact(id: "openai", name: "ChatGPT", description: "OpenAI的GPT-4o模型", model: "gpt-4o", avatar: "bubble.left.and.bubble.right", isOnline: true, apiEndpoint: "https://api.openai.com/v1", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration, .translation, .summarization], color: .green),
         AIContact(id: "claude", name: "Claude", description: "Anthropic的Claude-3.5-Sonnet", model: "claude-3-5-sonnet", avatar: "sparkles", isOnline: true, apiEndpoint: "https://api.anthropic.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration, .translation, .summarization], color: .indigo),
-        AIContact(id: "gemini", name: "Gemini", description: "Google的多模态AI", model: "gemini-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://generativelanguage.googleapis.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .imageGeneration, .codeGeneration], color: .blue),
+        AIContact(id: "gemini", name: "Google Gemini", description: "Google的多模态AI助手", model: "gemini-1.5-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://generativelanguage.googleapis.com/v1beta", requiresApiKey: true, supportedFeatures: [.textGeneration, .imageGeneration, .codeGeneration], color: .blue),
 
-        // ⚡ 高性能推理服务（都有可购买的API）
-        AIContact(id: "groq", name: "Groq", description: "超高速推理，Llama3模型", model: "llama3-70b-8192", avatar: "bolt.fill", isOnline: true, apiEndpoint: "https://api.groq.com/openai/v1", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .mint),
-        AIContact(id: "together", name: "Together AI", description: "开源模型推理平台", model: "meta-llama/Llama-3.1-70B-Instruct", avatar: "link", isOnline: true, apiEndpoint: "https://api.together.xyz", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .teal),
-        AIContact(id: "perplexity", name: "Perplexity", description: "AI搜索引擎，实时联网", model: "llama-3-sonar-large-32k-online", avatar: "magnifyingglass.circle.fill", isOnline: true, apiEndpoint: "https://api.perplexity.ai", requiresApiKey: true, supportedFeatures: [.textGeneration, .search], color: .pink),
-
-        // 🎨 专业AI创作工具（都有可购买的API）
-        AIContact(id: "dalle", name: "DALL-E", description: "OpenAI图像生成", model: "dall-e-3", avatar: "photo.artframe", isOnline: true, apiEndpoint: "https://api.openai.com/v1", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .green),
-        AIContact(id: "stablediffusion", name: "Stable Diffusion", description: "Stability AI图像生成", model: "stable-diffusion-xl", avatar: "paintbrush.fill", isOnline: true, apiEndpoint: "https://api.stability.ai", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .pink),
-        AIContact(id: "elevenlabs", name: "ElevenLabs", description: "AI语音合成", model: "eleven-multilingual-v2", avatar: "speaker.wave.3.fill", isOnline: true, apiEndpoint: "https://api.elevenlabs.io", requiresApiKey: true, supportedFeatures: [.audioGeneration], color: .blue),
-        AIContact(id: "whisper", name: "Whisper", description: "OpenAI语音识别", model: "whisper-1", avatar: "mic.fill", isOnline: true, apiEndpoint: "https://api.openai.com/v1", requiresApiKey: true, supportedFeatures: [.audioGeneration], color: .cyan),
+        // 🤖 专业AI助手（参考Poe）
+        AIContact(id: "gpt4-turbo", name: "GPT-4 Turbo", description: "OpenAI最新的GPT-4 Turbo模型", model: "gpt-4-turbo", avatar: "bolt.circle.fill", isOnline: true, apiEndpoint: "https://api.openai.com/v1", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration, .translation, .summarization], color: .purple),
+        AIContact(id: "claude-instant", name: "Claude Instant", description: "Anthropic的快速响应模型", model: "claude-instant-1.2", avatar: "timer", isOnline: true, apiEndpoint: "https://api.anthropic.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .mint),
+        AIContact(id: "llama-70b", name: "Llama 2 70B", description: "Meta的开源大语言模型", model: "llama-2-70b-chat", avatar: "llama.fill", isOnline: true, apiEndpoint: "https://api.together.xyz", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .orange),
+        AIContact(id: "codellama", name: "Code Llama", description: "专门用于代码生成的Llama模型", model: "codellama-34b-instruct", avatar: "chevron.left.forwardslash.chevron.right", isOnline: true, apiEndpoint: "https://api.together.xyz", requiresApiKey: true, supportedFeatures: [.codeGeneration], color: .teal),
+        AIContact(id: "mistral-7b", name: "Mistral 7B", description: "Mistral AI的高效模型", model: "mistral-7b-instruct", avatar: "wind", isOnline: true, apiEndpoint: "https://api.together.xyz", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .indigo),
 
         // 🔧 本地部署（免费选项）
         AIContact(id: "ollama", name: "Ollama", description: "本地运行开源模型", model: "llama3.1", avatar: "server.rack", isOnline: false, apiEndpoint: "http://localhost:11434", requiresApiKey: false, supportedFeatures: [.textGeneration, .codeGeneration], color: .gray)
@@ -227,11 +279,10 @@ struct AIContactsView: View {
 
     @State private var searchText = ""
     @State private var isRefreshing = false
-    @State private var selectedContact: AIContact?
-    @State private var showingChat = false
     @State private var showingAPIConfig = false
     @State private var selectedContactForAPI: AIContact?
     @State private var showingAPIConfigForContact = false
+    @State private var showDetailedInfo = false
 
     var filteredContacts: [AIContact] {
         let baseContacts = searchText.isEmpty ? contacts : contacts.filter { contact in
@@ -278,19 +329,70 @@ struct AIContactsView: View {
 
                 // 联系人列表
                 List(filteredContacts, id: \.id) { contact in
-                    ContactRowView(
-                        contact: contact,
-                        hasAPIKey: apiManager.hasAPIKey(for: contact.id),
-                        isPinned: apiManager.isPinned(contact.id),
-                        onTap: { handleContactTap(contact) },
-                        onPin: { apiManager.setPinned(contact.id, pinned: !apiManager.isPinned(contact.id)) },
-                        onHide: { apiManager.setHidden(contact.id, hidden: true) },
-                        onConfigAPI: {
-                            selectedContactForAPI = contact
-                            showingAPIConfigForContact = true
+                    if canEnterChat(contact) {
+                        NavigationLink(destination: ChatView(contact: contact)) {
+                            ContactRowContent(
+                                contact: contact,
+                                hasAPIKey: apiManager.hasAPIKey(for: contact.id),
+                                isPinned: apiManager.isPinned(contact.id),
+                                showDetailedInfo: showDetailedInfo
+                            )
                         }
-                    )
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .contextMenu {
+                            Button(action: {
+                                apiManager.setPinned(contact.id, pinned: !apiManager.isPinned(contact.id))
+                            }) {
+                                Label(apiManager.isPinned(contact.id) ? "取消置顶" : "置顶", systemImage: apiManager.isPinned(contact.id) ? "pin.slash" : "pin")
+                            }
+
+                            Button(action: {
+                                apiManager.setHidden(contact.id, hidden: true)
+                            }) {
+                                Label("隐藏", systemImage: "eye.slash")
+                            }
+
+                            Button(action: {
+                                selectedContactForAPI = contact
+                                showingAPIConfigForContact = true
+                            }) {
+                                Label("配置API", systemImage: "key")
+                            }
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    } else {
+                        Button(action: {
+                            showAPIConfigAlert(for: contact)
+                        }) {
+                            ContactRowContent(
+                                contact: contact,
+                                hasAPIKey: apiManager.hasAPIKey(for: contact.id),
+                                isPinned: apiManager.isPinned(contact.id),
+                                showDetailedInfo: showDetailedInfo
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .contextMenu {
+                            Button(action: {
+                                selectedContactForAPI = contact
+                                showingAPIConfigForContact = true
+                            }) {
+                                Label("配置API", systemImage: "key")
+                            }
+
+                            Button(action: {
+                                apiManager.setPinned(contact.id, pinned: !apiManager.isPinned(contact.id))
+                            }) {
+                                Label(apiManager.isPinned(contact.id) ? "取消置顶" : "置顶", systemImage: apiManager.isPinned(contact.id) ? "pin.slash" : "pin")
+                            }
+
+                            Button(action: {
+                                apiManager.setHidden(contact.id, hidden: true)
+                            }) {
+                                Label("隐藏", systemImage: "eye.slash")
+                            }
+                        }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    }
                 }
                 .listStyle(PlainListStyle())
                 .refreshable {
@@ -300,32 +402,27 @@ struct AIContactsView: View {
             .navigationTitle("AI联系人")
             .navigationBarTitleDisplayMode(.large)
             .navigationBarItems(
-                leading: Button("显示全部") {
-                    // 重置所有隐藏状态，显示所有联系人
-                    for contact in contacts {
-                        apiManager.setHidden(contact.id, hidden: false)
+                leading: Button(showDetailedInfo ? "简洁模式" : "详细信息") {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showDetailedInfo.toggle()
                     }
                 },
-                trailing: Button(action: {
-                    showingAPIConfig = true
-                }) {
-                    Image(systemName: "gearshape.fill")
-                        .foregroundColor(.blue)
+                trailing: HStack(spacing: 16) {
+                    NavigationLink(destination: FavoritesView()) {
+                        Image(systemName: "heart.fill")
+                            .foregroundColor(.red)
+                    }
+
+                    Button(action: {
+                        showingAPIConfig = true
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(.blue)
+                    }
                 }
             )
         }
         .navigationViewStyle(StackNavigationViewStyle()) // 确保在iPad上也使用推入式导航
-        .fullScreenCover(isPresented: $showingChat) {
-            if let contact = selectedContact {
-                NavigationView {
-                    ChatView(contact: contact)
-                        .navigationBarTitleDisplayMode(.inline)
-                        .navigationBarItems(leading: Button("返回") {
-                            showingChat = false
-                        })
-                }
-            }
-        }
         .sheet(isPresented: $showingAPIConfig) {
             APIConfigView()
         }
@@ -363,35 +460,26 @@ struct AIContactsView: View {
         isRefreshing = false
     }
 
-    private func handleContactTap(_ contact: AIContact) {
-        // 对于不需要API密钥的联系人，直接进入聊天
-        if !contact.requiresApiKey {
-            selectedContact = contact
-            showingChat = true
-            return
-        }
+    private func canEnterChat(_ contact: AIContact) -> Bool {
+        return !contact.requiresApiKey || apiManager.hasAPIKey(for: contact.id)
+    }
 
-        // 对于需要API密钥的联系人，检查是否已配置
-        if apiManager.hasAPIKey(for: contact.id) {
-            selectedContact = contact
-            showingChat = true
-        } else {
-            // 显示API配置提示
-            let alert = UIAlertController(
-                title: "需要配置API密钥",
-                message: "使用\(contact.name)需要先配置API密钥。是否前往设置？",
-                preferredStyle: .alert
-            )
+    private func showAPIConfigAlert(for contact: AIContact) {
+        let alert = UIAlertController(
+            title: "需要配置API密钥",
+            message: "使用\(contact.name)需要先配置API密钥。是否前往设置？",
+            preferredStyle: .alert
+        )
 
-            alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-            alert.addAction(UIAlertAction(title: "去设置", style: .default) { _ in
-                showingAPIConfig = true
-            })
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "去设置", style: .default) { _ in
+            selectedContactForAPI = contact
+            showingAPIConfigForContact = true
+        })
 
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let window = windowScene.windows.first {
-                window.rootViewController?.present(alert, animated: true)
-            }
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(alert, animated: true)
         }
     }
 }
@@ -416,6 +504,7 @@ struct ContactRowView: View {
     let contact: AIContact
     let hasAPIKey: Bool
     let isPinned: Bool
+    let showDetailedInfo: Bool
     let onTap: () -> Void
     let onPin: () -> Void
     let onHide: () -> Void
@@ -425,7 +514,7 @@ struct ContactRowView: View {
 
     var body: some View {
         Button(action: onTap) {
-            ContactRowContent(contact: contact, hasAPIKey: hasAPIKey, isPinned: isPinned)
+            ContactRowContent(contact: contact, hasAPIKey: hasAPIKey, isPinned: isPinned, showDetailedInfo: showDetailedInfo)
         }
         .buttonStyle(PlainButtonStyle())
         .background(Color(.systemBackground))
@@ -458,6 +547,7 @@ struct ContactRowContent: View {
     let contact: AIContact
     let hasAPIKey: Bool
     let isPinned: Bool
+    let showDetailedInfo: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -498,42 +588,65 @@ struct ContactRowContent: View {
                         .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: isOnline)
                 }
 
-                Text(contact.description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-
-                HStack {
-                    Text("模型: \(contact.model)")
-                        .font(.caption)
+                if showDetailedInfo {
+                    // 详细信息模式
+                    Text(contact.description)
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
 
-                    Spacer()
-
-                    if contact.requiresApiKey {
-                        Image(systemName: "key.fill")
+                    HStack {
+                        Text("模型: \(contact.model)")
                             .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                }
+                            .foregroundColor(.secondary)
 
-                // 支持的功能标签
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
-                        ForEach(contact.supportedFeatures.prefix(3), id: \.self) { feature in
-                            Text(feature.rawValue)
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
+                        Spacer()
+
+                        if contact.requiresApiKey {
+                            Image(systemName: "key.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
                         }
+                    }
 
-                        if contact.supportedFeatures.count > 3 {
-                            Text("+\(contact.supportedFeatures.count - 3)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                    // 支持的功能标签
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            ForEach(contact.supportedFeatures.prefix(3), id: \.self) { feature in
+                                Text(feature.rawValue)
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.1))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(4)
+                            }
+
+                            if contact.supportedFeatures.count > 3 {
+                                Text("+\(contact.supportedFeatures.count - 3)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                } else {
+                    // 简洁模式 - 显示最后一条消息
+                    Text(getLastMessage(for: contact.id))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+
+                    HStack {
+                        Text(getLastMessageTime(for: contact.id))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+
+                        if contact.requiresApiKey && !hasAPIKey {
+                            Text("需要配置API")
+                                .font(.caption)
+                                .foregroundColor(.orange)
                         }
                     }
                 }
@@ -543,72 +656,282 @@ struct ContactRowContent: View {
         }
         .padding(.vertical, 4)
     }
+
+    private func getLastMessage(for contactId: String) -> String {
+        // 这里应该从聊天记录中获取最后一条消息
+        // 目前返回默认文本
+        let defaultMessages = [
+            "deepseek": "准备好为您编写代码了",
+            "qwen": "我是通义千问，有什么可以帮您的？",
+            "chatglm": "智谱清言为您服务",
+            "moonshot": "Kimi可以处理长文本对话",
+            "doubao": "豆包助手随时待命"
+        ]
+        return defaultMessages[contactId] ?? "点击开始对话"
+    }
+
+    private func getLastMessageTime(for contactId: String) -> String {
+        // 这里应该从聊天记录中获取最后消息时间
+        // 目前返回默认时间
+        return "刚刚"
+    }
 }
 
 // MARK: - ChatViewModel
 class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading = false
+    @Published var searchText = ""
+    @Published var favoriteMessages: Set<String> = []
+    @Published var filteredMessages: [ChatMessage] = []
+
     private var webViewModel: WebViewModel?
+    private var currentContactId: String = ""
 
     func configureForContact(_ contact: AIContact) {
-        // 这里可以根据联系人配置特定的AI引擎
+        currentContactId = contact.id
         webViewModel = WebViewModel()
+        loadMessages(for: contact.id)
+        loadFavorites()
+        updateFilteredMessages()
     }
 
     func addMessage(_ message: ChatMessage) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             messages.append(message)
+            saveMessages()
+            updateFilteredMessages()
         }
     }
 
     func clearMessages() {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             messages.removeAll()
+            saveMessages()
+            updateFilteredMessages()
         }
+    }
+
+    // 加载历史消息
+    private func loadMessages(for contactId: String) {
+        if let data = UserDefaults.standard.data(forKey: "messages_\(contactId)"),
+           let savedMessages = try? JSONDecoder().decode([ChatMessage].self, from: data) {
+            // 将历史消息标记为静态显示
+            messages = savedMessages.map { message in
+                var historicalMessage = message
+                historicalMessage.isHistorical = true
+                return historicalMessage
+            }
+        } else {
+            messages = []
+        }
+    }
+
+    // 保存消息
+    private func saveMessages() {
+        if let data = try? JSONEncoder().encode(messages) {
+            UserDefaults.standard.set(data, forKey: "messages_\(currentContactId)")
+        }
+    }
+
+    // 加载收藏消息
+    private func loadFavorites() {
+        if let data = UserDefaults.standard.data(forKey: "favorites_\(currentContactId)"),
+           let savedFavorites = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            favoriteMessages = savedFavorites
+        }
+    }
+
+    // 保存收藏消息
+    private func saveFavorites() {
+        if let data = try? JSONEncoder().encode(favoriteMessages) {
+            UserDefaults.standard.set(data, forKey: "favorites_\(currentContactId)")
+        }
+    }
+
+    // 切换收藏状态
+    func toggleFavorite(messageId: String) {
+        if favoriteMessages.contains(messageId) {
+            favoriteMessages.remove(messageId)
+        } else {
+            favoriteMessages.insert(messageId)
+        }
+        saveFavorites()
+    }
+
+    // 搜索消息
+    func searchMessages() {
+        updateFilteredMessages()
+    }
+
+    // 更新过滤后的消息
+    private func updateFilteredMessages() {
+        if searchText.isEmpty {
+            filteredMessages = messages
+        } else {
+            filteredMessages = messages.filter { message in
+                message.content.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+
+    // 删除消息
+    func deleteMessage(messageId: String) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            messages.removeAll { $0.id == messageId }
+            saveMessages()
+            updateFilteredMessages()
+        }
+    }
+
+    // 切换收藏状态
+    func toggleMessageFavorite(messageId: String) {
+        if favoriteMessages.contains(messageId) {
+            favoriteMessages.remove(messageId)
+        } else {
+            favoriteMessages.insert(messageId)
+        }
+        saveFavorites()
+    }
+
+    // 编辑消息
+    func editMessage(messageId: String, newContent: String) {
+        if let index = messages.firstIndex(where: { $0.id == messageId }) {
+            var editedMessage = messages[index]
+            editedMessage.content = newContent
+            messages[index] = editedMessage
+            saveMessages()
+            updateFilteredMessages()
+        }
+    }
+
+    // 获取消息内容用于编辑
+    func getMessageContent(messageId: String) -> String {
+        return messages.first { $0.id == messageId }?.content ?? ""
     }
 
     func sendToAI(message: String, contact: AIContact) {
         isLoading = true
 
-        // 模拟AI回复（这里应该集成实际的AI API）
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            let aiResponse = ChatMessage(
-                id: UUID().uuidString,
-                content: self.generateAIResponse(for: message, contact: contact),
-                isFromUser: false,
-                timestamp: Date(),
-                status: .delivered,
-                actions: MessageAction.allCases
-            )
+        // 检查是否有API密钥
+        guard let apiKey = APIConfigManager.shared.getAPIKey(for: contact.id), !apiKey.isEmpty else {
+            // 没有API密钥，返回提示信息
+            DispatchQueue.main.async {
+                let errorResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: "请先在设置中配置\(contact.name)的API密钥。",
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .delivered,
+                    actions: []
+                )
 
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                self.messages.append(aiResponse)
-                self.isLoading = false
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    self.messages.append(errorResponse)
+                    self.isLoading = false
+                }
             }
+            return
+        }
+
+        // 调用实际的AI API
+        callAIAPI(message: message, contact: contact, apiKey: apiKey)
+    }
+
+    private func callAIAPI(message: String, contact: AIContact, apiKey: String) {
+        guard let apiEndpoint = contact.apiEndpoint, let url = URL(string: "\(apiEndpoint)/chat/completions") else {
+            handleAPIError("无效的API端点")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let requestBody: [String: Any] = [
+            "model": contact.model,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            handleAPIError("请求格式错误")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.handleAPIError("网络错误: \(error.localizedDescription)")
+                    return
+                }
+
+                guard let data = data else {
+                    self?.handleAPIError("没有收到响应数据")
+                    return
+                }
+
+                self?.parseAPIResponse(data: data)
+            }
+        }.resume()
+    }
+
+    private func parseAPIResponse(data: Data) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let choices = json["choices"] as? [[String: Any]],
+               let firstChoice = choices.first,
+               let message = firstChoice["message"] as? [String: Any],
+               let content = message["content"] as? String {
+
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .delivered,
+                    actions: MessageAction.allCases
+                )
+
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    self.messages.append(aiResponse)
+                    self.saveMessages()
+                    self.updateFilteredMessages()
+                }
+            } else {
+                handleAPIError("响应格式错误")
+            }
+        } catch {
+            handleAPIError("解析响应失败: \(error.localizedDescription)")
         }
     }
 
-    private func generateAIResponse(for message: String, contact: AIContact) -> String {
-        // 这里应该调用实际的AI API
-        // 目前返回模拟回复
-        return """
-        感谢您的提问！作为\(contact.name)，我很乐意为您解答。
+    private func handleAPIError(_ errorMessage: String) {
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: "❌ \(errorMessage)\n\n请检查API密钥是否正确，或稍后重试。",
+            isFromUser: false,
+            timestamp: Date(),
+            status: .failed,
+            actions: []
+        )
 
-        **关于您的问题：**
-        \(message)
-
-        **我的回复：**
-        这是一个很好的问题。基于我的分析，我建议您考虑以下几个方面：
-
-        1. **首先**，需要明确问题的核心
-        2. **其次**，分析可能的解决方案
-        3. **最后**，选择最适合的方法
-
-        > 💡 **提示**：如果您需要更详细的解释，请随时告诉我！
-
-        希望这个回答对您有帮助。还有其他问题吗？
-        """
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            self.messages.append(errorResponse)
+            self.saveMessages()
+            self.updateFilteredMessages()
+        }
     }
 }
 
@@ -620,9 +943,15 @@ struct ChatView: View {
     @State private var isTyping = false
     @State private var keyboardHeight: CGFloat = 0
     @State private var showingMoreOptions = false
+    @State private var showingSearchView = false
+    @State private var editingMessageId: String? = nil
+    @State private var editingText: String = ""
+    @State private var showingAIEditPopup = false
+    @State private var aiEditingContent: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
+
             // 聊天消息列表
             ScrollViewReader { proxy in
                 ScrollView {
@@ -634,8 +963,17 @@ struct ChatView: View {
                         }
 
                         ForEach(chatViewModel.messages) { message in
-                            MessageBubble(message: message, contact: contact)
-                                .id(message.id)
+                            MessageBubble(
+                                message: message,
+                                contact: contact,
+                                onDelete: { messageId in
+                                    chatViewModel.deleteMessage(messageId: messageId)
+                                },
+                                onEdit: { messageId in
+                                    startEditingMessage(messageId)
+                                }
+                            )
+                            .id(message.id)
                         }
 
                         if chatViewModel.isLoading {
@@ -682,31 +1020,7 @@ struct ChatView: View {
                 }
             )
         }
-        .navigationTitle(contact.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(false)
-        .navigationBarItems(
-            trailing: HStack(spacing: 16) {
-                // 在线状态指示器
-                if contact.isOnline {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text("在线")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                    }
-                }
 
-                Button(action: {
-                    showingMoreOptions = true
-                }) {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
-                }
-            }
-        )
         .onAppear {
             chatViewModel.configureForContact(contact)
             setupKeyboardObservers()
@@ -728,6 +1042,46 @@ struct ChatView: View {
                 ]
             )
         }
+        .background(Color(.systemBackground))
+        .edgesIgnoringSafeArea(.bottom)
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    // 支持右滑返回手势
+                    if value.translation.width > 100 && abs(value.translation.height) < 50 {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+        )
+        .sheet(isPresented: $showingSearchView) {
+            ChatSearchView(chatViewModel: chatViewModel)
+        }
+        .sheet(isPresented: $showingAIEditPopup) {
+            AIEditPopupView(content: $aiEditingContent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+        .navigationTitle(contact.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarItems(
+            trailing: HStack(spacing: 16) {
+                Button(action: {
+                    showingSearchView = true
+                }) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                }
+
+                Button(action: {
+                    showingMoreOptions = true
+                }) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title2)
+                        .foregroundColor(.blue)
+                }
+            }
+        )
     }
 
     private func sendMessage() {
@@ -738,7 +1092,8 @@ struct ChatView: View {
             content: messageText,
             isFromUser: true,
             timestamp: Date(),
-            status: .sent
+            status: .sent,
+            actions: []
         )
 
         chatViewModel.addMessage(userMessage)
@@ -749,6 +1104,40 @@ struct ChatView: View {
 
         // 发送到AI
         chatViewModel.sendToAI(message: messageToSend, contact: contact)
+    }
+
+    private func startEditingMessage(_ messageId: String) {
+        if let message = chatViewModel.messages.first(where: { $0.id == messageId }) {
+            if message.isFromUser {
+                // 用户消息：直接编辑
+                editingMessageId = messageId
+                editingText = message.content
+                messageText = editingText
+            } else {
+                // AI消息：弹窗编辑
+                aiEditingContent = message.content
+                showingAIEditPopup = true
+            }
+        }
+    }
+
+    private func saveEditedMessage() {
+        guard let messageId = editingMessageId else { return }
+
+        let newContent = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !newContent.isEmpty {
+            chatViewModel.editMessage(messageId: messageId, newContent: newContent)
+        }
+
+        editingMessageId = nil
+        editingText = ""
+        messageText = ""
+    }
+
+    private func cancelEditing() {
+        editingMessageId = nil
+        editingText = ""
+        messageText = ""
     }
 
     private func setupKeyboardObservers() {
@@ -819,14 +1208,22 @@ struct MessageBubble: View {
     let message: ChatMessage
     let contact: AIContact
     @State private var showActions = false
+    let onDelete: (String) -> Void
+    let onEdit: (String) -> Void
 
     var body: some View {
         HStack {
             if message.isFromUser {
                 Spacer()
-                UserMessageBubble(message: message)
+                UserMessageBubble(message: message, onEdit: onEdit)
             } else {
-                AIMessageBubble(message: message, contact: contact, showActions: $showActions)
+                AIMessageBubble(
+                    message: message,
+                    contact: contact,
+                    showActions: $showActions,
+                    onDelete: onDelete,
+                    onEdit: onEdit
+                )
                 Spacer()
             }
         }
@@ -835,6 +1232,8 @@ struct MessageBubble: View {
 
 struct UserMessageBubble: View {
     let message: ChatMessage
+    let onEdit: (String) -> Void
+    @State private var showActions = false
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -845,6 +1244,11 @@ struct UserMessageBubble: View {
                 .foregroundColor(.white)
                 .cornerRadius(18)
                 .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
+                .onTapGesture {
+                    withAnimation(.spring()) {
+                        showActions.toggle()
+                    }
+                }
 
             HStack(spacing: 4) {
                 Text(timeString(from: message.timestamp))
@@ -852,6 +1256,42 @@ struct UserMessageBubble: View {
                     .foregroundColor(.secondary)
 
                 StatusIcon(status: message.status)
+            }
+
+            // 用户消息操作按钮
+            if showActions {
+                HStack(spacing: 12) {
+                    Button(action: {
+                        UIPasteboard.general.string = message.content
+                        showActions = false
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 16))
+                            Text("复制")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.blue)
+                    }
+
+                    Button(action: {
+                        onEdit(message.id)
+                        showActions = false
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 16))
+                            Text("编辑")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .transition(.opacity.combined(with: .scale))
             }
         }
     }
@@ -869,6 +1309,8 @@ struct AIMessageBubble: View {
     @Binding var showActions: Bool
     @State private var animatedContent = ""
     @State private var currentIndex = 0
+    let onDelete: (String) -> Void
+    let onEdit: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -886,15 +1328,22 @@ struct AIMessageBubble: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    // 消息内容（支持Markdown）
-                    MarkdownText(animatedContent)
+                    // 消息内容（支持Markdown和文本选择）
+                    Text(animatedContent)
+                        .textSelection(.enabled)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Color(.systemGray6))
                         .cornerRadius(18)
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .leading)
                         .onAppear {
-                            startTypingAnimation()
+                            if message.isHistorical {
+                                // 历史消息直接显示完整内容
+                                animatedContent = message.content
+                            } else {
+                                // 新消息播放打字动画
+                                startTypingAnimation()
+                            }
                         }
 
                     Text(timeString(from: message.timestamp))
@@ -905,7 +1354,13 @@ struct AIMessageBubble: View {
 
             // 操作按钮
             if !message.actions.isEmpty {
-                MessageActionsView(message: message, showActions: $showActions)
+                MessageActionsView(
+                    message: message,
+                    contact: contact,
+                    showActions: $showActions,
+                    onDelete: onDelete,
+                    onEdit: onEdit
+                )
             }
         }
     }
@@ -972,36 +1427,91 @@ struct MarkdownText: View {
 
 struct MessageActionsView: View {
     let message: ChatMessage
+    let contact: AIContact
     @Binding var showActions: Bool
     @State private var selectedAction: MessageAction?
+    let onDelete: (String) -> Void
+    let onEdit: (String) -> Void
+    @StateObject private var favoritesManager = FavoritesManager.shared
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button(action: {
-                withAnimation(.spring()) {
-                    showActions.toggle()
+        VStack(spacing: 8) {
+            // 主要操作按钮（始终显示）
+            HStack(spacing: 12) {
+                // 复制按钮
+                ActionButton(action: .copy) {
+                    copyMessage()
                 }
-            }) {
-                Image(systemName: showActions ? "chevron.up" : "chevron.down")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
 
-            if showActions {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(message.actions, id: \.self) { action in
-                            ActionButton(action: action) {
-                                handleAction(action)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 4)
+                // 转发按钮
+                ActionButton(action: .forward) {
+                    handleAction(.forward)
                 }
+
+                // 收藏按钮
+                Button(action: {
+                    toggleFavorite()
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: favoritesManager.isFavorite(message.id) ? "heart.fill" : "heart")
+                            .font(.system(size: 16))
+                            .foregroundColor(favoritesManager.isFavorite(message.id) ? .red : .blue)
+
+                        Text(favoritesManager.isFavorite(message.id) ? "已收藏" : "收藏")
+                            .font(.caption2)
+                            .foregroundColor(favoritesManager.isFavorite(message.id) ? .red : .blue)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                // 编辑按钮（AI回复）
+                if !message.isFromUser {
+                    ActionButton(action: .edit) {
+                        onEdit(message.id)
+                    }
+                }
+
+                Spacer()
+
+                // 更多操作按钮（显示删除等）
+                Button(action: {
+                    withAnimation(.spring()) {
+                        showActions.toggle()
+                    }
+                }) {
+                    Image(systemName: showActions ? "chevron.up" : "ellipsis")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(8)
+                        .background(Color(.systemGray5))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.leading, 40) // 对齐AI头像
+
+            // 扩展操作按钮（点击更多后显示）
+            if showActions {
+                HStack(spacing: 8) {
+                    // 删除按钮
+                    ActionButton(action: .delete) {
+                        showDeleteConfirmation()
+                    }
+
+                    // 分享按钮
+                    ActionButton(action: .share) {
+                        handleAction(.share)
+                    }
+
+                    Spacer()
+                }
+                .padding(.leading, 40)
                 .transition(.opacity.combined(with: .scale))
             }
         }
-        .padding(.leading, 40) // 对齐AI头像
     }
 
     private func handleAction(_ action: MessageAction) {
@@ -1011,24 +1521,26 @@ struct MessageActionsView: View {
             // 这里添加具体的操作逻辑
             switch action {
             case .forward:
-                // 转发逻辑
-                break
+                forwardMessage()
             case .share:
                 shareMessage()
+            case .copy:
+                copyMessage()
             case .edit:
-                // 编辑逻辑
-                break
+                if message.isFromUser {
+                    onEdit(message.id)
+                }
             case .delete:
-                // 删除逻辑
-                break
+                showDeleteConfirmation()
             case .favorite:
-                // 收藏逻辑
-                break
-            case .quote:
-                // 引用逻辑
-                break
+                toggleFavorite()
             }
         }
+    }
+
+    private func copyMessage() {
+        UIPasteboard.general.string = message.content
+        showToast("已复制到剪贴板")
     }
 
     private func shareMessage() {
@@ -1039,6 +1551,57 @@ struct MessageActionsView: View {
 
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
             windowScene.windows.first?.rootViewController?.present(activityVC, animated: true)
+        }
+    }
+
+    private func forwardMessage() {
+        // 转发消息到其他联系人
+        shareMessage() // 暂时使用分享功能
+    }
+
+    private func editMessage() {
+        // 编辑消息（对于用户消息）
+        if message.isFromUser {
+            // 可以实现编辑功能
+            showToast("编辑功能开发中")
+        }
+    }
+
+    private func showDeleteConfirmation() {
+        showAlert(title: "删除消息", message: "确定要删除这条消息吗？") {
+            onDelete(message.id)
+        }
+    }
+
+    private func toggleFavorite() {
+        if favoritesManager.isFavorite(message.id) {
+            favoritesManager.removeFavorite(message.id)
+            showToast("已取消收藏")
+        } else {
+            favoritesManager.addFavorite(message, contactName: contact.name, contactId: contact.id)
+            showToast("已添加到收藏")
+        }
+    }
+
+
+    private func showToast(_ message: String) {
+        // 简单的提示实现
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            windowScene.windows.first?.rootViewController?.present(alert, animated: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                alert.dismiss(animated: true)
+            }
+        }
+    }
+
+    private func showAlert(title: String, message: String, action: @escaping () -> Void) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "确定", style: .destructive) { _ in action() })
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            windowScene.windows.first?.rootViewController?.present(alert, animated: true)
         }
     }
 }
@@ -1159,6 +1722,11 @@ struct ChatInputView: View {
                     TextField("输入消息...", text: $messageText, axis: .vertical)
                         .textFieldStyle(PlainTextFieldStyle())
                         .lineLimit(1...5)
+                        .onSubmit {
+                            if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                onSend()
+                            }
+                        }
                         .onChange(of: messageText) { _ in
                             isTyping = !messageText.isEmpty
                         }
@@ -1427,6 +1995,270 @@ struct SingleContactAPIConfigView: View {
         }
         .onAppear {
             apiKey = apiManager.getAPIKey(for: contact.id) ?? ""
+        }
+    }
+}
+
+// 聊天搜索视图
+struct ChatSearchView: View {
+    @ObservedObject var chatViewModel: ChatViewModel
+    @Environment(\.presentationMode) var presentationMode
+    @State private var searchText = ""
+
+    var filteredMessages: [ChatMessage] {
+        if searchText.isEmpty {
+            return chatViewModel.messages
+        } else {
+            return chatViewModel.messages.filter { message in
+                message.content.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                // 搜索框
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+
+                    TextField("搜索聊天记录", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+
+                    if !searchText.isEmpty {
+                        Button(action: {
+                            searchText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                // 搜索结果
+                if filteredMessages.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 50))
+                            .foregroundColor(.secondary)
+
+                        Text(searchText.isEmpty ? "输入关键词搜索聊天记录" : "没有找到相关消息")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(filteredMessages) { message in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(message.isFromUser ? "我" : "AI")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(message.isFromUser ? .blue : .green)
+
+                                Spacer()
+
+                                Text(message.timestamp, style: .time)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Text(message.content)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                Spacer()
+            }
+            .navigationTitle("搜索聊天记录")
+            .navigationBarItems(
+                trailing: Button("完成") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+}
+
+// 收藏视图
+struct FavoritesView: View {
+    @StateObject private var favoritesManager = FavoritesManager.shared
+    @State private var searchText = ""
+
+    var filteredFavorites: [FavoriteMessage] {
+        if searchText.isEmpty {
+            return favoritesManager.favorites.sorted { $0.timestamp > $1.timestamp }
+        } else {
+            return favoritesManager.favorites
+                .filter { $0.content.localizedCaseInsensitiveContains(searchText) }
+                .sorted { $0.timestamp > $1.timestamp }
+        }
+    }
+
+    var body: some View {
+        VStack {
+            if favoritesManager.favorites.isEmpty {
+                VStack(spacing: 20) {
+                    Image(systemName: "heart.slash")
+                        .font(.system(size: 60))
+                        .foregroundColor(.gray)
+
+                    Text("暂无收藏")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+
+                    Text("在AI聊天中点击收藏按钮来收藏重要消息")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(filteredFavorites) { favorite in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(favorite.contactName)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+
+                                Spacer()
+
+                                Text(favorite.timestamp, style: .relative)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Text(favorite.content)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                                .lineLimit(nil)
+
+                            HStack {
+                                Text(favorite.isFromUser ? "我" : "AI")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(favorite.isFromUser ? Color.blue.opacity(0.2) : Color.green.opacity(0.2))
+                                    .cornerRadius(4)
+
+                                Spacer()
+
+                                Button(action: {
+                                    UIPasteboard.general.string = favorite.content
+                                }) {
+                                    Image(systemName: "doc.on.doc")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                }
+
+                                Button(action: {
+                                    favoritesManager.removeFavorite(favorite.id)
+                                }) {
+                                    Image(systemName: "heart.fill")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            let favorite = filteredFavorites[index]
+                            favoritesManager.removeFavorite(favorite.id)
+                        }
+                    }
+                }
+                .searchable(text: $searchText, prompt: "搜索收藏内容")
+            }
+        }
+        .navigationTitle("我的收藏")
+        .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+// AI回复编辑弹窗
+struct AIEditPopupView: View {
+    @Binding var content: String
+    @Environment(\.presentationMode) var presentationMode
+    @State private var selectedText: String = ""
+    @State private var showingCopyConfirmation = false
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("AI回复内容")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+
+                    Text("长按选择文本进行复制")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    ScrollView {
+                        Text(content)
+                            .textSelection(.enabled)
+                            .font(.body)
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                    }
+                    .frame(maxHeight: 400)
+                }
+
+                VStack(spacing: 12) {
+                    Button(action: {
+                        UIPasteboard.general.string = content
+                        showingCopyConfirmation = true
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            showingCopyConfirmation = false
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: showingCopyConfirmation ? "checkmark" : "doc.on.doc")
+                            Text(showingCopyConfirmation ? "已复制全部内容" : "复制全部内容")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(showingCopyConfirmation ? Color.green : Color.blue)
+                        .cornerRadius(12)
+                    }
+                    .disabled(showingCopyConfirmation)
+
+                    Text("提示：您可以长按文本选择部分内容进行复制")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("编辑AI回复")
+            .navigationBarItems(
+                trailing: Button("完成") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
         }
     }
 }

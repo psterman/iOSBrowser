@@ -13,19 +13,22 @@ struct SearchView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
     
-    // 应用数据
+    // 应用数据 - 使用更贴近真实应用的图标和颜色
     private let apps = [
         AppInfo(name: "淘宝", icon: "bag.fill", color: .orange, urlScheme: "taobao://s.taobao.com/search?q="),
-        AppInfo(name: "拼多多", icon: "cart.fill", color: .red, urlScheme: "pinduoduo://search?keyword="),
-        AppInfo(name: "知乎", icon: "questionmark.circle.fill", color: .blue, urlScheme: "zhihu://search?q="),
+        AppInfo(name: "拼多多", icon: "cart.fill", color: .orange, urlScheme: "pinduoduo://search?keyword="),
+        AppInfo(name: "知乎", icon: "bubble.left.and.bubble.right.fill", color: .blue, urlScheme: "zhihu://search?q="),
         AppInfo(name: "抖音", icon: "music.note", color: .black, urlScheme: "snssdk1128://search?keyword="),
         AppInfo(name: "美团", icon: "fork.knife", color: .yellow, urlScheme: "imeituan://www.meituan.com/search?q="),
         AppInfo(name: "豆瓣", icon: "book.fill", color: .green, urlScheme: "douban://search?q="),
-        AppInfo(name: "微博", icon: "at", color: .red, urlScheme: "sinaweibo://search?q="),
+        AppInfo(name: "微博", icon: "at", color: .orange, urlScheme: "sinaweibo://search?q="),
         AppInfo(name: "bilibili", icon: "tv.fill", color: .pink, urlScheme: "bilibili://search?keyword="),
         AppInfo(name: "YouTube", icon: "play.rectangle.fill", color: .red, urlScheme: "youtube://results?search_query="),
         AppInfo(name: "京东", icon: "shippingbox.fill", color: .red, urlScheme: "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"search\",\"keyword\":\""),
-        AppInfo(name: "闲鱼", icon: "fish.fill", color: .blue, urlScheme: "fleamarket://search?q=")
+        AppInfo(name: "闲鱼", icon: "fish.fill", color: .blue, urlScheme: "fleamarket://search?q="),
+        AppInfo(name: "小红书", icon: "heart.fill", color: .red, urlScheme: "xhsdiscover://search/result?keyword="),
+        AppInfo(name: "网易云音乐", icon: "music.note.list", color: .red, urlScheme: "orpheuswidget://search?keyword="),
+        AppInfo(name: "QQ音乐", icon: "music.quarternote.3", color: .green, urlScheme: "qqmusic://search?key=")
     ]
     
     var body: some View {
@@ -132,13 +135,14 @@ struct AppButton: View {
     let searchText: String
     let action: () -> Void
     @State private var isPressed = false
-    
+    @State private var isInstalled = false
+
     var body: some View {
         Button(action: {
             withAnimation(.easeInOut(duration: 0.1)) {
                 isPressed = true
             }
-            
+
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.easeInOut(duration: 0.1)) {
                     isPressed = false
@@ -150,21 +154,52 @@ struct AppButton: View {
                 // 应用图标
                 ZStack {
                     Circle()
-                        .fill(app.color.opacity(0.1))
+                        .fill(app.color.opacity(isInstalled ? 0.2 : 0.1))
                         .frame(width: 60, height: 60)
-                    
+                        .overlay(
+                            Circle()
+                                .stroke(isInstalled ? app.color.opacity(0.3) : Color.clear, lineWidth: 2)
+                        )
+
                     Image(systemName: app.icon)
                         .font(.system(size: 28, weight: .medium))
-                        .foregroundColor(app.color)
+                        .foregroundColor(isInstalled ? app.color : app.color.opacity(0.6))
+
+                    // 已安装指示器
+                    if isInstalled {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 16, height: 16)
+                                    .overlay(
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(.white)
+                                    )
+                                    .offset(x: 8, y: 8)
+                            }
+                        }
+                    }
                 }
                 .scaleEffect(isPressed ? 0.9 : 1.0)
-                
+
                 // 应用名称
-                Text(app.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .scaleEffect(isPressed ? 0.9 : 1.0)
+                VStack(spacing: 2) {
+                    Text(app.name)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(isInstalled ? .primary : .secondary)
+                        .lineLimit(1)
+
+                    if !isInstalled {
+                        Text("未安装")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .scaleEffect(isPressed ? 0.9 : 1.0)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
@@ -178,6 +213,17 @@ struct AppButton: View {
         .buttonStyle(PlainButtonStyle())
         .disabled(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         .opacity(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.6 : 1.0)
+        .onAppear {
+            checkIfInstalled()
+        }
+    }
+
+    private func checkIfInstalled() {
+        // 提取URL scheme的协议部分
+        let scheme = String(app.urlScheme.prefix(while: { $0 != ":" }))
+        if let url = URL(string: scheme + "://") {
+            isInstalled = UIApplication.shared.canOpenURL(url)
+        }
     }
 }
 

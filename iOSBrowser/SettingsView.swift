@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import WebKit
 
 struct SettingsView: View {
     @State private var apiKeys: [String: String] = [:]
@@ -67,9 +68,29 @@ struct SettingsView: View {
                 // 应用设置
                 Section("应用设置") {
                     Toggle("深色模式", isOn: $darkModeEnabled)
+                        .onChange(of: darkModeEnabled) { newValue in
+                            UserDefaults.standard.set(newValue, forKey: "darkModeEnabled")
+                            // 应用深色模式设置
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                                windowScene.windows.first?.overrideUserInterfaceStyle = newValue ? .dark : .light
+                            }
+                        }
+
                     Toggle("推送通知", isOn: $notificationsEnabled)
+                        .onChange(of: notificationsEnabled) { newValue in
+                            UserDefaults.standard.set(newValue, forKey: "notificationsEnabled")
+                            // 这里可以添加推送通知的设置逻辑
+                        }
+
                     Toggle("自动保存书签", isOn: $autoSaveBookmarks)
+                        .onChange(of: autoSaveBookmarks) { newValue in
+                            UserDefaults.standard.set(newValue, forKey: "autoSaveBookmarks")
+                        }
+
                     Toggle("退出时清除缓存", isOn: $clearCacheOnExit)
+                        .onChange(of: clearCacheOnExit) { newValue in
+                            UserDefaults.standard.set(newValue, forKey: "clearCacheOnExit")
+                        }
                 }
                 
                 // 浏览器设置
@@ -137,26 +158,70 @@ struct SettingsView: View {
     }
     
     private func loadSettings() {
-        darkModeEnabled = UserDefaults.standard.bool(forKey: "darkModeEnabled")
-        notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
-        autoSaveBookmarks = UserDefaults.standard.bool(forKey: "autoSaveBookmarks")
-        clearCacheOnExit = UserDefaults.standard.bool(forKey: "clearCacheOnExit")
+        // 加载设置，如果没有设置过则使用默认值
+        if UserDefaults.standard.object(forKey: "darkModeEnabled") != nil {
+            darkModeEnabled = UserDefaults.standard.bool(forKey: "darkModeEnabled")
+        } else {
+            darkModeEnabled = false
+        }
+
+        if UserDefaults.standard.object(forKey: "notificationsEnabled") != nil {
+            notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        } else {
+            notificationsEnabled = true
+        }
+
+        if UserDefaults.standard.object(forKey: "autoSaveBookmarks") != nil {
+            autoSaveBookmarks = UserDefaults.standard.bool(forKey: "autoSaveBookmarks")
+        } else {
+            autoSaveBookmarks = true
+        }
+
+        if UserDefaults.standard.object(forKey: "clearCacheOnExit") != nil {
+            clearCacheOnExit = UserDefaults.standard.bool(forKey: "clearCacheOnExit")
+        } else {
+            clearCacheOnExit = false
+        }
     }
     
     private func clearBrowsingData() {
-        // 清除浏览数据的实现
         let alert = UIAlertController(
             title: "清除浏览数据",
             message: "这将清除所有浏览历史、缓存和Cookie。此操作无法撤销。",
             preferredStyle: .alert
         )
-        
+
         alert.addAction(UIAlertAction(title: "取消", style: .cancel))
         alert.addAction(UIAlertAction(title: "清除", style: .destructive) { _ in
-            // 实际的清除逻辑
+            // 清除URL缓存
             URLCache.shared.removeAllCachedResponses()
+
+            // 清除Cookie
+            HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
+
+            // 清除书签（如果用户选择）
+            UserDefaults.standard.removeObject(forKey: "bookmarks")
+
+            // 清除WebView数据
+            let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+            let date = Date(timeIntervalSince1970: 0)
+            WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: date) {
+                DispatchQueue.main.async {
+                    // 显示清除完成的提示
+                    let successAlert = UIAlertController(
+                        title: "清除完成",
+                        message: "浏览数据已成功清除",
+                        preferredStyle: .alert
+                    )
+                    successAlert.addAction(UIAlertAction(title: "确定", style: .default))
+
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                        windowScene.windows.first?.rootViewController?.present(successAlert, animated: true)
+                    }
+                }
+            }
         })
-        
+
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
             windowScene.windows.first?.rootViewController?.present(alert, animated: true)
         }
