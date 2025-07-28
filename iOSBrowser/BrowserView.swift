@@ -347,6 +347,10 @@ struct BrowserView: View {
                 // 默认显示自定义首页
                 showingCustomHomePage = true
                 loadBookmarks()
+                setupNotificationObservers()
+            }
+            .onDisappear {
+                removeNotificationObservers()
             }
             .sheet(isPresented: $showingBookmarks) {
                 BookmarksView(bookmarks: $bookmarks) { url in
@@ -511,6 +515,79 @@ struct BrowserView: View {
         showingCustomHomePage = true
         urlText = ""
         viewModel.urlString = ""
+    }
+
+    // MARK: - 通知处理
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            forName: .browserClipboardSearch,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let data = notification.object as? [String: String],
+               let query = data["query"],
+               let engine = data["engine"] {
+                handleClipboardSearch(query: query, engine: engine)
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .performSearch,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let query = notification.object as? String {
+                performSearch(query: query)
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: .switchSearchEngine,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let engineId = notification.object as? String {
+                switchToSearchEngine(engineId: engineId)
+            }
+        }
+    }
+
+    private func removeNotificationObservers() {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    private func handleClipboardSearch(query: String, engine: String) {
+        showingCustomHomePage = false
+        urlText = query
+
+        // 根据搜索引擎构建搜索URL
+        let searchURL: String
+        switch engine {
+        case "google":
+            searchURL = "https://www.google.com/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        case "baidu":
+            searchURL = "https://www.baidu.com/s?wd=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        case "bing":
+            searchURL = "https://www.bing.com/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        default:
+            searchURL = "https://www.google.com/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        }
+
+        viewModel.urlString = searchURL
+        if let url = URL(string: searchURL) {
+            viewModel.webView.load(URLRequest(url: url))
+        }
+    }
+
+    private func performSearch(query: String) {
+        showingCustomHomePage = false
+        urlText = query
+        loadURL()
+    }
+
+    private func switchToSearchEngine(engineId: String) {
+        // 这里可以实现切换搜索引擎的逻辑
+        // 例如更新selectedSearchEngine状态
     }
 }
 

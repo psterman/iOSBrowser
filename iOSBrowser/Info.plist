@@ -1,5 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>iOSBrowser Deep Link</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>iosbrowser</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>taobao</string>
+		<string>tmall</string>
+		<string>openapp.jdmobile</string>
+		<string>pinduoduo</string>
+		<string>weixin</string>
+		<string>mqq</string>
+		<string>sinaweibo</string>
+		<string>zhihu</string>
+		<string>snssdk1128</string>
+		<string>kwai</string>
+		<string>bilibili</string>
+		<string>qiyi-iphone</string>
+		<string>qqmusic</string>
+		<string>orpheus</string>
+		<string>alipay</string>
+		<string>imeituan</string>
+		<string>eleme</string>
+		<string>diditaxi</string>
+		<string>iosamap</string>
+		<string>baidumap</string>
+		<string>qqmap</string>
+	</array>
+</dict>
 </plist>

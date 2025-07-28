@@ -1,0 +1,88 @@
+// 这是一个模板文件，显示如何在project.pbxproj中添加Widget Extension target
+// 实际操作建议通过Xcode界面完成
+
+/* 需要在project.pbxproj中添加的关键配置 */
+
+// 1. 添加Widget Extension target
+/* Begin PBXNativeTarget section */
+// 在现有target后添加：
+{
+    isa = PBXNativeTarget;
+    buildConfigurationList = /* 配置列表引用 */;
+    buildPhases = (
+        /* 编译阶段 */
+    );
+    buildRules = (
+    );
+    dependencies = (
+    );
+    name = iOSBrowserWidgets;
+    productName = iOSBrowserWidgets;
+    productReference = /* 产品引用 */;
+    productType = "com.apple.product-type.app-extension";
+};
+
+// 2. 添加Widget文件引用
+/* Begin PBXFileReference section */
+// 添加Widget相关文件：
+{
+    isa = PBXFileReference;
+    lastKnownFileType = sourcecode.swift;
+    path = iOSBrowserWidgets.swift;
+    sourceTree = "<group>";
+};
+
+// 3. 添加构建配置
+/* Begin XCBuildConfiguration section */
+// Widget Extension Debug配置：
+{
+    isa = XCBuildConfiguration;
+    buildSettings = {
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+        ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+        CODE_SIGN_STYLE = Automatic;
+        CURRENT_PROJECT_VERSION = 1;
+        DEVELOPMENT_TEAM = "";
+        GENERATE_INFOPLIST_FILE = YES;
+        INFOPLIST_FILE = iOSBrowserWidgets/Info.plist;
+        INFOPLIST_KEY_CFBundleDisplayName = iOSBrowserWidgets;
+        INFOPLIST_KEY_NSHumanReadableCopyright = "";
+        LD_RUNPATH_SEARCH_PATHS = (
+            "$(inherited)",
+            "@executable_path/Frameworks",
+            "@executable_path/../../Frameworks",
+        );
+        MARKETING_VERSION = 1.0;
+        PRODUCT_BUNDLE_IDENTIFIER = "com.yourcompany.iOSBrowser.iOSBrowserWidgets";
+        PRODUCT_NAME = "$(TARGET_NAME)";
+        SKIP_INSTALL = YES;
+        SWIFT_EMIT_LOC_STRINGS = YES;
+        SWIFT_VERSION = 5.0;
+        TARGETED_DEVICE_FAMILY = "1,2";
+    };
+    name = Debug;
+};
+
+// Widget Extension Release配置：
+{
+    isa = XCBuildConfiguration;
+    buildSettings = {
+        // 与Debug相同，但优化设置不同
+        SWIFT_COMPILATION_MODE = wholemodule;
+        SWIFT_OPTIMIZATION_LEVEL = "-O";
+    };
+    name = Release;
+};
+
+/* 重要提示 */
+/*
+由于project.pbxproj文件非常复杂且容易出错，强烈建议：
+
+1. 使用Xcode界面创建Widget Extension：
+   - File → New → Target → Widget Extension
+   - 这样可以确保所有配置都正确
+
+2. 然后将我们创建的Widget文件复制到新的target中
+
+3. 或者按照以下步骤手动操作：
+*/
