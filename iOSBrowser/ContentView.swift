@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import Foundation
+import WidgetKit
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -23,13 +24,92 @@ class DataSyncCenter: ObservableObject {
     @Published var allAIAssistants: [UnifiedAIData] = []
     @Published var availableAIAssistants: [UnifiedAIData] = []
 
-    @Published var selectedSearchEngines: [String] = ["baidu", "google"]
-    @Published var selectedApps: [String] = ["taobao", "zhihu", "douyin"]
-    @Published var selectedAIAssistants: [String] = ["deepseek", "qwen"]
-    @Published var selectedQuickActions: [String] = ["search", "bookmark"]
+    @Published var selectedSearchEngines: [String] = {
+        print("🔥🔥🔥 @Published初始化开始: selectedSearchEngines")
+        let defaults = UserDefaults.standard
+        defaults.synchronize()
+
+        let saved = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+        print("🔥🔥🔥 @Published读取UserDefaults: iosbrowser_engines = \(saved)")
+
+        if !saved.isEmpty {
+            print("🔥🔥🔥 @Published初始化: 加载用户搜索引擎 \(saved)")
+            return saved
+        } else {
+            print("🔥🔥🔥 @Published初始化: 使用默认搜索引擎 [baidu, google]")
+            let defaultEngines = ["baidu", "google"]
+
+            // 🔥🔥🔥 关键修复：立即保存默认值到UserDefaults
+            defaults.set(defaultEngines, forKey: "iosbrowser_engines")
+            defaults.synchronize()
+            print("🔥🔥🔥 @Published初始化: 已保存默认搜索引擎到UserDefaults")
+
+            return defaultEngines
+        }
+    }()
+
+    @Published var selectedApps: [String] = {
+        let defaults = UserDefaults.standard
+        if let saved = defaults.stringArray(forKey: "iosbrowser_apps"), !saved.isEmpty {
+            print("🔥🔥🔥 @Published初始化: 加载应用 \(saved)")
+            return saved
+        }
+        print("🔥🔥🔥 @Published初始化: 使用默认应用")
+        let defaultApps = ["taobao", "zhihu", "douyin"]
+
+        // 🔥🔥🔥 关键修复：立即保存默认值到UserDefaults
+        defaults.set(defaultApps, forKey: "iosbrowser_apps")
+        defaults.synchronize()
+        print("🔥🔥🔥 @Published初始化: 已保存默认应用到UserDefaults")
+
+        return defaultApps
+    }()
+
+    @Published var selectedAIAssistants: [String] = {
+        let defaults = UserDefaults.standard
+        if let saved = defaults.stringArray(forKey: "iosbrowser_ai"), !saved.isEmpty {
+            print("🔥🔥🔥 @Published初始化: 加载AI助手 \(saved)")
+            return saved
+        }
+        print("🔥🔥🔥 @Published初始化: 使用默认AI助手")
+        let defaultAI = ["deepseek", "qwen"]
+
+        // 🔥🔥🔥 关键修复：立即保存默认值到UserDefaults
+        defaults.set(defaultAI, forKey: "iosbrowser_ai")
+        defaults.synchronize()
+        print("🔥🔥🔥 @Published初始化: 已保存默认AI助手到UserDefaults")
+
+        return defaultAI
+    }()
+
+    @Published var selectedQuickActions: [String] = {
+        let defaults = UserDefaults.standard
+        if let saved = defaults.stringArray(forKey: "iosbrowser_actions"), !saved.isEmpty {
+            print("🔥🔥🔥 @Published初始化: 加载快捷操作 \(saved)")
+            return saved
+        }
+        print("🔥🔥🔥 @Published初始化: 使用默认快捷操作")
+        let defaultActions = ["search", "bookmark"]
+
+        // 🔥🔥🔥 关键修复：立即保存默认值到UserDefaults
+        defaults.set(defaultActions, forKey: "iosbrowser_actions")
+        defaults.synchronize()
+        print("🔥🔥🔥 @Published初始化: 已保存默认快捷操作到UserDefaults")
+
+        return defaultActions
+    }()
 
     private init() {
+        print("🔥🔥🔥 DataSyncCenter: 开始初始化...")
+        print("🔥🔥🔥 初始化时间: \(Date())")
+
+        print("🔥🔥🔥 加载基础数据...")
         loadAllData()
+
+        print("🔥🔥🔥 加载用户选择...")
+        loadUserSelections() // 加载用户之前的选择
+
+        print("🔥🔥🔥 DataSyncCenter: 初始化完成")
     }
 
     func loadAllData() {
@@ -38,6 +118,66 @@ class DataSyncCenter: ObservableObject {
         loadSearchEngines()
         loadQuickActions()
         print("🔄 DataSyncCenter: 所有数据加载完成")
+    }
+
+    // MARK: - 从存储中加载用户选择（数据持久化）
+    private func loadUserSelections() {
+        print("🔥🔥🔥 DataSyncCenter: 开始加载用户之前的选择...")
+        print("🔥🔥🔥 当前时间: \(Date())")
+
+        let defaults = UserDefaults.standard
+        let syncResult = defaults.synchronize()
+        print("🔥🔥🔥 UserDefaults同步结果: \(syncResult)")
+
+        // 先读取所有数据进行诊断
+        let savedApps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
+        let savedAI = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
+        let savedEngines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+        let savedActions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+        let lastUpdate = defaults.double(forKey: "iosbrowser_last_update")
+
+        print("🔥🔥🔥 UserDefaults中读取的原始数据:")
+        print("   应用: \(savedApps)")
+        print("   AI助手: \(savedAI)")
+        print("   搜索引擎: \(savedEngines)")
+        print("   快捷操作: \(savedActions)")
+        print("   最后更新: \(Date(timeIntervalSince1970: lastUpdate))")
+
+        print("🔥🔥🔥 当前内存中的默认值:")
+        print("   应用: \(selectedApps)")
+        print("   AI助手: \(selectedAIAssistants)")
+        print("   搜索引擎: \(selectedSearchEngines)")
+        print("   快捷操作: \(selectedQuickActions)")
+
+        // 应用选择已在@Published初始化时加载，跳过重复加载
+        print("🔥🔥🔥 应用已在@Published初始化时加载: \(selectedApps)")
+        print("🔥🔥🔥 跳过loadUserSelections中的应用加载，避免覆盖")
+
+        // AI助手选择已在@Published初始化时加载，跳过重复加载
+        print("🔥🔥🔥 AI助手已在@Published初始化时加载: \(selectedAIAssistants)")
+        print("🔥🔥🔥 跳过loadUserSelections中的AI助手加载，避免覆盖")
+
+        // 搜索引擎选择已在@Published初始化时加载，跳过重复加载
+        print("🔥🔥🔥 搜索引擎已在@Published初始化时加载: \(selectedSearchEngines)")
+        print("🔥🔥🔥 跳过loadUserSelections中的搜索引擎加载，避免覆盖")
+
+        // 快捷操作选择已在@Published初始化时加载，跳过重复加载
+        print("🔥🔥🔥 快捷操作已在@Published初始化时加载: \(selectedQuickActions)")
+        print("🔥🔥🔥 跳过loadUserSelections中的快捷操作加载，避免覆盖")
+
+        print("🔥🔥🔥 最终加载结果:")
+        print("   应用: \(selectedApps)")
+        print("   AI助手: \(selectedAIAssistants)")
+        print("   搜索引擎: \(selectedSearchEngines)")
+        print("   快捷操作: \(selectedQuickActions)")
+
+        // 强制触发UI更新
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+            print("🔥🔥🔥 已发送UI更新通知")
+        }
+
+        print("🔥🔥🔥 DataSyncCenter: 用户选择加载完成")
     }
 
     // MARK: - 从搜索tab加载应用数据
@@ -154,25 +294,36 @@ class DataSyncCenter: ObservableObject {
         print("🤖 可用AI助手: \(availableAIAssistants.count) 个")
     }
 
-    // MARK: - 保存到共享存储
+    // MARK: - 保存到共享存储（无需App Groups方案）
     private func saveToSharedStorage() {
+        print("🔥 DataSyncCenter.saveToSharedStorage 开始")
+
+        // 方案1: 尝试App Groups（如果可用）
         let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared")
+        if sharedDefaults != nil {
+            print("🔥 App Groups可用，保存到App Groups")
+            // 保存应用数据
+            if let appsData = try? JSONEncoder().encode(allApps) {
+                sharedDefaults?.set(appsData, forKey: "unified_apps_data")
+            }
 
-        // 保存应用数据
-        if let appsData = try? JSONEncoder().encode(allApps) {
-            sharedDefaults?.set(appsData, forKey: "unified_apps_data")
+            // 保存AI数据
+            if let aiData = try? JSONEncoder().encode(allAIAssistants) {
+                sharedDefaults?.set(aiData, forKey: "unified_ai_data")
+            }
+
+            // 保存用户选择
+            sharedDefaults?.set(selectedSearchEngines, forKey: "widget_search_engines")
+            sharedDefaults?.set(selectedApps, forKey: "widget_apps")
+            sharedDefaults?.set(selectedAIAssistants, forKey: "widget_ai_assistants")
+            sharedDefaults?.set(selectedQuickActions, forKey: "widget_quick_actions")
+        } else {
+            print("⚠️ App Groups不可用")
         }
 
-        // 保存AI数据
-        if let aiData = try? JSONEncoder().encode(allAIAssistants) {
-            sharedDefaults?.set(aiData, forKey: "unified_ai_data")
-        }
-
-        // 保存用户选择
-        sharedDefaults?.set(selectedSearchEngines, forKey: "widget_search_engines")
-        sharedDefaults?.set(selectedApps, forKey: "widget_apps")
-        sharedDefaults?.set(selectedAIAssistants, forKey: "widget_ai_assistants")
-        sharedDefaults?.set(selectedQuickActions, forKey: "widget_quick_actions")
+        // 方案2: 无需App Groups的多重保存方案
+        print("🔥 开始无需App Groups的多重保存")
+        saveToWidgetAccessibleLocationFromDataSyncCenter()
 
         print("💾 数据已保存到共享存储")
 
@@ -180,89 +331,416 @@ class DataSyncCenter: ObservableObject {
         reloadAllWidgets()
     }
 
-    // MARK: - 强制刷新所有小组件
-    private func reloadAllWidgets() {
+    // MARK: - 从DataSyncCenter调用无需App Groups方案
+    private func saveToWidgetAccessibleLocationFromDataSyncCenter() {
+        print("🔥 DataSyncCenter无需App Groups方案开始")
+
+        // 使用UserDefaults.standard，这是最可靠的跨进程通信方式
+        let defaults = UserDefaults.standard
+
+        print("🔥 准备保存数据:")
+        print("🔥   selectedApps: \(selectedApps)")
+        print("🔥   selectedAIAssistants: \(selectedAIAssistants)")
+        print("🔥   selectedSearchEngines: \(selectedSearchEngines)")
+        print("🔥   selectedQuickActions: \(selectedQuickActions)")
+
+        // 保存所有数据到多个键，增加成功率
+        defaults.set(selectedApps, forKey: "widget_apps_v2")
+        defaults.set(selectedApps, forKey: "widget_apps_v3")
+        defaults.set(selectedApps, forKey: "iosbrowser_apps")
+
+        defaults.set(selectedAIAssistants, forKey: "widget_ai_assistants_v2")
+        defaults.set(selectedAIAssistants, forKey: "widget_ai_assistants_v3")
+        defaults.set(selectedAIAssistants, forKey: "iosbrowser_ai")
+
+        defaults.set(selectedSearchEngines, forKey: "widget_search_engines_v2")
+        defaults.set(selectedSearchEngines, forKey: "widget_search_engines_v3")
+        defaults.set(selectedSearchEngines, forKey: "iosbrowser_engines")
+
+        defaults.set(selectedQuickActions, forKey: "widget_quick_actions_v2")
+        defaults.set(selectedQuickActions, forKey: "widget_quick_actions_v3")
+        defaults.set(selectedQuickActions, forKey: "iosbrowser_actions")
+
+        defaults.set(Date().timeIntervalSince1970, forKey: "widget_last_update")
+        defaults.set(Date().timeIntervalSince1970, forKey: "iosbrowser_last_update")
+
+        print("🔥 数据已设置到UserDefaults，开始同步...")
+
+        // 强制同步
+        let syncResult = defaults.synchronize()
+        print("🔥 UserDefaults同步结果: \(syncResult)")
+
+        // 🔥🔥🔥 关键修复：同时保存到App Groups
+        print("🔥🔥🔥 开始保存到App Groups...")
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.set(selectedSearchEngines, forKey: "widget_search_engines")
+            sharedDefaults.set(selectedApps, forKey: "widget_apps")
+            sharedDefaults.set(selectedAIAssistants, forKey: "widget_ai_assistants")
+            sharedDefaults.set(selectedQuickActions, forKey: "widget_quick_actions")
+            sharedDefaults.set(Date().timeIntervalSince1970, forKey: "widget_last_update")
+
+            let sharedSyncResult = sharedDefaults.synchronize()
+            print("🔥🔥🔥 App Groups同步结果: \(sharedSyncResult)")
+
+            // 验证App Groups保存结果
+            let sharedEngines = sharedDefaults.stringArray(forKey: "widget_search_engines") ?? []
+            let sharedApps = sharedDefaults.stringArray(forKey: "widget_apps") ?? []
+            let sharedAI = sharedDefaults.stringArray(forKey: "widget_ai_assistants") ?? []
+            let sharedActions = sharedDefaults.stringArray(forKey: "widget_quick_actions") ?? []
+
+            print("🔥🔥🔥 App Groups保存验证:")
+            print("   搜索引擎: \(sharedEngines)")
+            print("   应用: \(sharedApps)")
+            print("   AI助手: \(sharedAI)")
+            print("   快捷操作: \(sharedActions)")
+        } else {
+            print("❌ App Groups不可用")
+        }
+
+        // 立即验证保存结果（所有数据类型）
+        let savedApps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
+        let savedAI = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
+        let savedEngines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+        let savedActions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+        let lastUpdate = defaults.double(forKey: "iosbrowser_last_update")
+
+        print("✅ DataSyncCenter强制同步到UserDefaults完成")
+        print("📱 完整验证保存结果:")
+        print("📱   应用 (iosbrowser_apps): \(savedApps)")
+        print("📱   AI助手 (iosbrowser_ai): \(savedAI)")
+        print("📱   搜索引擎 (iosbrowser_engines): \(savedEngines)")
+        print("📱   快捷操作 (iosbrowser_actions): \(savedActions)")
+        print("📱   最后更新时间: \(Date(timeIntervalSince1970: lastUpdate))")
+
+        // 检查数据一致性
+        let appsMatch = selectedApps == savedApps
+        let aiMatch = selectedAIAssistants == savedAI
+        let enginesMatch = selectedSearchEngines == savedEngines
+        let actionsMatch = selectedQuickActions == savedActions
+
+        print("🔍 数据一致性验证:")
+        print("📱   应用: \(appsMatch ? "✅" : "❌") (内存:\(selectedApps) vs 存储:\(savedApps))")
+        print("📱   AI助手: \(aiMatch ? "✅" : "❌") (内存:\(selectedAIAssistants) vs 存储:\(savedAI))")
+        print("📱   搜索引擎: \(enginesMatch ? "✅" : "❌") (内存:\(selectedSearchEngines) vs 存储:\(savedEngines))")
+        print("📱   快捷操作: \(actionsMatch ? "✅" : "❌") (内存:\(selectedQuickActions) vs 存储:\(savedActions))")
+
+        print("🔥🔥🔥 DataSyncCenter双重保存方案完成")
+    }
+
+    // MARK: - 立即同步方法（用于用户操作后的即时同步）
+    func immediateSyncToWidgets() {
+        print("🔥🔥🔥 立即同步到小组件开始...")
+        print("🔥🔥🔥 当前数据状态:")
+        print("   搜索引擎: \(selectedSearchEngines)")
+        print("   应用: \(selectedApps)")
+        print("   AI助手: \(selectedAIAssistants)")
+        print("   快捷操作: \(selectedQuickActions)")
+
+        // 立即保存到UserDefaults
+        saveToWidgetAccessibleLocationFromDataSyncCenter()
+
+        // 🔥🔥🔥 增强的实时刷新策略
+        print("🔥🔥🔥 开始增强的实时刷新策略...")
+
+        // 1. 立即刷新（多次调用确保生效）
+        for i in 0..<3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
+                print("🔥🔥🔥 第\(i+1)次立即刷新...")
+                self.reloadAllWidgets()
+            }
+        }
+
+        // 2. 强制通知系统更新
+        DispatchQueue.main.async {
+            if #available(iOS 14.0, *) {
+                WidgetCenter.shared.reloadAllTimelines()
+                print("🔥🔥🔥 已通知系统立即更新所有小组件")
+
+                // 额外刷新特定小组件
+                let widgetKinds = ["SimpleSearchEngineWidget", "SimpleAppWidget", "SimpleAIWidget", "SimpleQuickActionWidget"]
+                for kind in widgetKinds {
+                    WidgetCenter.shared.reloadTimelines(ofKind: kind)
+                    print("🔥🔥🔥 已刷新特定小组件: \(kind)")
+                }
+            }
+        }
+
+        // 3. 延迟验证和再次刷新
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔥🔥🔥 延迟1秒验证和刷新...")
+            self.validateDataSync()
+            self.reloadAllWidgets()
+        }
+
+        // 4. 最终确保刷新
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            print("🔥🔥🔥 延迟3秒最终刷新...")
+            self.reloadAllWidgets()
+        }
+
+        print("🔥🔥🔥 增强的立即同步完成")
+    }
+
+    // MARK: - 强制UI刷新方法
+    func forceUIRefresh() {
+        print("🔥🔥🔥 强制UI刷新开始...")
+
+        // 确保在主线程上立即执行UI更新
+        if Thread.isMainThread {
+            self.objectWillChange.send()
+            print("🔥🔥🔥 主线程立即发送UI更新通知")
+        } else {
+            DispatchQueue.main.sync {
+                self.objectWillChange.send()
+                print("🔥🔥🔥 切换到主线程发送UI更新通知")
+            }
+        }
+
+        print("🔥🔥🔥 强制UI刷新完成")
+    }
+
+    // MARK: - 强制刷新所有小组件（增强版）
+    func reloadAllWidgets() {
         #if canImport(WidgetKit)
         if #available(iOS 14.0, *) {
-            // 强制刷新所有小组件
+            print("🔄🔄🔄 开始强制刷新所有小组件...")
+
+            // 1. 强制刷新所有小组件
             WidgetKit.WidgetCenter.shared.reloadAllTimelines()
             print("🔄 已请求刷新所有小组件")
 
-            // 额外刷新特定小组件
-            WidgetKit.WidgetCenter.shared.reloadTimelines(ofKind: "UserConfigurableSearchWidget")
-            WidgetKit.WidgetCenter.shared.reloadTimelines(ofKind: "UserConfigurableAppWidget")
-            WidgetKit.WidgetCenter.shared.reloadTimelines(ofKind: "UserConfigurableAIWidget")
-            WidgetKit.WidgetCenter.shared.reloadTimelines(ofKind: "UserConfigurableQuickActionWidget")
-            print("🔄 已请求刷新特定小组件")
+            // 2. 额外刷新特定小组件（多次调用确保生效）
+            let widgetKinds = [
+                "UserConfigurableSearchWidget",
+                "UserConfigurableAppWidget",
+                "UserConfigurableAIWidget",
+                "UserConfigurableQuickActionWidget"
+            ]
+
+            for kind in widgetKinds {
+                WidgetKit.WidgetCenter.shared.reloadTimelines(ofKind: kind)
+                print("🔄 已请求刷新小组件: \(kind)")
+            }
+
+            // 3. 延迟再次刷新（对抗系统缓存）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                print("🔄🔄🔄 延迟1秒再次刷新小组件...")
+                WidgetKit.WidgetCenter.shared.reloadAllTimelines()
+                for kind in widgetKinds {
+                    WidgetKit.WidgetCenter.shared.reloadTimelines(ofKind: kind)
+                }
+            }
+
+            // 4. 最终刷新（确保更新）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                print("🔄🔄🔄 延迟3秒最终刷新小组件...")
+                WidgetKit.WidgetCenter.shared.reloadAllTimelines()
+            }
+
+            print("🔄🔄🔄 小组件刷新请求已发送")
         }
         #endif
     }
 
     func refreshAllData() {
         loadAllData()
+        loadUserSelections() // 同时刷新用户选择
+        print("🔄 DataSyncCenter: 数据已刷新")
+    }
+
+    // MARK: - 手动刷新用户选择（用于调试和强制刷新）
+    func refreshUserSelections() {
+        print("🔄 手动刷新用户选择...")
+        loadUserSelections()
+    }
+
+    // MARK: - 数据同步验证方法
+    func validateDataSync() {
+        print("🔥🔥🔥 开始数据同步验证...")
+
+        let defaults = UserDefaults.standard
+        defaults.synchronize()
+
+        // 验证所有数据是否正确保存
+        let savedApps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
+        let savedAI = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
+        let savedEngines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+        let savedActions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+
+        print("📱 当前内存中的数据:")
+        print("   应用: \(selectedApps)")
+        print("   AI助手: \(selectedAIAssistants)")
+        print("   搜索引擎: \(selectedSearchEngines)")
+        print("   快捷操作: \(selectedQuickActions)")
+
+        print("💾 UserDefaults中保存的数据:")
+        print("   应用: \(savedApps)")
+        print("   AI助手: \(savedAI)")
+        print("   搜索引擎: \(savedEngines)")
+        print("   快捷操作: \(savedActions)")
+
+        // 检查数据一致性
+        let appsMatch = selectedApps == savedApps
+        let aiMatch = selectedAIAssistants == savedAI
+        let enginesMatch = selectedSearchEngines == savedEngines
+        let actionsMatch = selectedQuickActions == savedActions
+
+        print("🔍 数据一致性检查:")
+        print("   应用: \(appsMatch ? "✅" : "❌")")
+        print("   AI助手: \(aiMatch ? "✅" : "❌")")
+        print("   搜索引擎: \(enginesMatch ? "✅" : "❌")")
+        print("   快捷操作: \(actionsMatch ? "✅" : "❌")")
+
+        if appsMatch && aiMatch && enginesMatch && actionsMatch {
+            print("🎉 数据同步验证通过！")
+        } else {
+            print("⚠️ 数据同步存在问题，需要修复")
+        }
+    }
+
+    // MARK: - 实时数据验证（针对特定数据类型）
+    func validateDataSyncRealtime(dataType: String, expectedData: [String], key: String) {
+        print("🔍🔍🔍 实时验证\(dataType)数据同步...")
+
+        let defaults = UserDefaults.standard
+        defaults.synchronize()
+
+        let savedData = defaults.stringArray(forKey: key) ?? []
+        let isMatch = expectedData == savedData
+
+        print("🔍 \(dataType)数据验证:")
+        print("   期望数据: \(expectedData)")
+        print("   保存数据: \(savedData)")
+        print("   验证结果: \(isMatch ? "✅" : "❌")")
+
+        if isMatch {
+            print("🎉 \(dataType)数据同步成功！小组件应该会显示: \(expectedData)")
+        } else {
+            print("❌ \(dataType)数据同步失败！正在重新保存...")
+
+            // 重新保存数据
+            defaults.set(expectedData, forKey: key)
+            let syncResult = defaults.synchronize()
+            print("🔧 重新保存\(dataType)数据，同步结果: \(syncResult)")
+
+            // 强制刷新小组件
+            reloadAllWidgets()
+        }
     }
 
     func updateAppSelection(_ apps: [String]) {
+        print("🔥🔥🔥 DataSyncCenter.updateAppSelection 被调用: \(apps)")
+        print("🔥🔥🔥 当前selectedApps: \(selectedApps)")
+
         selectedApps = apps
-        saveToSharedStorage()
-        print("📱 应用选择已更新: \(apps)")
-        print("📱 保存到共享存储: widget_apps = \(apps)")
+        print("🔥🔥🔥 selectedApps已更新为: \(selectedApps)")
 
-        // 立即刷新小组件
-        reloadAllWidgets()
+        // 立即强制UI刷新（确保UI立即响应）
+        forceUIRefresh()
 
-        // 延迟再次刷新，确保数据同步
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.reloadAllWidgets()
-            print("📱 延迟刷新小组件完成")
+        print("🔥🔥🔥 开始立即同步到小组件")
+        immediateSyncToWidgets()
+        print("🔥🔥🔥 立即同步完成")
+
+        print("📱📱📱 应用选择已更新: \(apps)")
+
+        // 🔥🔥🔥 增强的实时验证
+        validateDataSyncRealtime(dataType: "应用", expectedData: apps, key: "iosbrowser_apps")
+
+        // 额外延迟验证确保数据持久化
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔄🔄🔄 延迟验证应用数据同步...")
+            self.validateDataSyncRealtime(dataType: "应用", expectedData: apps, key: "iosbrowser_apps")
+        }
+
+        // 最终验证
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            print("🔄🔄🔄 最终验证应用数据同步...")
+            self.validateDataSyncRealtime(dataType: "应用", expectedData: apps, key: "iosbrowser_apps")
         }
     }
 
     func updateAISelection(_ assistants: [String]) {
+        print("🔥🔥🔥 DataSyncCenter.updateAISelection 被调用: \(assistants)")
+        print("🔥🔥🔥 当前selectedAIAssistants: \(selectedAIAssistants)")
+
         selectedAIAssistants = assistants
-        saveToSharedStorage()
-        print("🤖 AI选择已更新: \(assistants)")
-        print("🤖 保存到共享存储: widget_ai_assistants = \(assistants)")
+        print("🔥🔥🔥 selectedAIAssistants已更新为: \(selectedAIAssistants)")
 
-        // 立即刷新小组件
-        reloadAllWidgets()
+        // 立即强制UI刷新（确保UI立即响应）
+        forceUIRefresh()
 
-        // 延迟再次刷新，确保数据同步
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.reloadAllWidgets()
-            print("🤖 延迟刷新小组件完成")
+        print("🔥🔥🔥 开始立即同步到小组件 (AI)")
+        immediateSyncToWidgets()
+        print("🔥🔥🔥 立即同步完成 (AI)")
+
+        print("🤖🤖🤖 AI选择已更新: \(assistants)")
+
+        // 🔥🔥🔥 增强的实时验证
+        validateDataSyncRealtime(dataType: "AI助手", expectedData: assistants, key: "iosbrowser_ai")
+
+        // 额外延迟验证确保数据持久化
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔄🔄🔄 延迟验证AI助手数据同步...")
+            self.validateDataSyncRealtime(dataType: "AI助手", expectedData: assistants, key: "iosbrowser_ai")
+        }
+
+        // 最终验证
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            print("🔄🔄🔄 最终验证AI助手数据同步...")
+            self.validateDataSyncRealtime(dataType: "AI助手", expectedData: assistants, key: "iosbrowser_ai")
         }
     }
 
     func updateSearchEngineSelection(_ engines: [String]) {
+        print("🔥 DataSyncCenter.updateSearchEngineSelection 被调用: \(engines)")
+        print("🔥 当前selectedSearchEngines: \(selectedSearchEngines)")
+
         selectedSearchEngines = engines
-        saveToSharedStorage()
+        print("🔥 selectedSearchEngines已更新为: \(selectedSearchEngines)")
+
+        // 立即强制UI刷新（确保UI立即响应）
+        forceUIRefresh()
+
+        print("🔥 开始立即同步到小组件 (搜索引擎)")
+        immediateSyncToWidgets()
+        print("🔥 立即同步完成 (搜索引擎)")
+
         print("🔍 搜索引擎选择已更新: \(engines)")
-        print("🔍 保存到共享存储: widget_search_engines = \(engines)")
 
-        // 立即刷新小组件
-        reloadAllWidgets()
+        // 立即验证数据同步
+        validateDataSync()
 
-        // 延迟再次刷新，确保数据同步
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.reloadAllWidgets()
-            print("🔍 延迟刷新小组件完成")
+        // 额外延迟验证确保数据持久化
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔄 延迟验证数据同步 (搜索引擎)...")
+            self.validateDataSync()
         }
     }
 
     func updateQuickActionSelection(_ actions: [String]) {
+        print("🔥 DataSyncCenter.updateQuickActionSelection 被调用: \(actions)")
+        print("🔥 当前selectedQuickActions: \(selectedQuickActions)")
+
         selectedQuickActions = actions
-        saveToSharedStorage()
+        print("🔥 selectedQuickActions已更新为: \(selectedQuickActions)")
+
+        // 立即强制UI刷新（确保UI立即响应）
+        forceUIRefresh()
+
+        print("🔥 开始立即同步到小组件 (快捷操作)")
+        immediateSyncToWidgets()
+        print("🔥 立即同步完成 (快捷操作)")
+
         print("⚡ 快捷操作选择已更新: \(actions)")
-        print("⚡ 保存到共享存储: widget_quick_actions = \(actions)")
 
-        // 立即刷新小组件
-        reloadAllWidgets()
+        // 立即验证数据同步
+        validateDataSync()
 
-        // 延迟再次刷新，确保数据同步
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.reloadAllWidgets()
-            print("⚡ 延迟刷新小组件完成")
+        // 额外延迟验证确保数据持久化
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔄 延迟验证数据同步 (快捷操作)...")
+            self.validateDataSync()
         }
     }
 }
@@ -366,7 +844,7 @@ struct UnifiedAIData: Codable, Identifiable {
 
 // MARK: - 临时WidgetConfigView引用（确保编译器能找到）
 struct WidgetConfigView: View {
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
+    @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
     @State private var selectedTab = 0
     @State private var showingWidgetGuide = false
 
@@ -380,6 +858,42 @@ struct WidgetConfigView: View {
                         .fontWeight(.bold)
 
                     Spacer()
+
+                    // 同步小组件按钮 - 合并了刷新和保存功能
+                    Button(action: {
+                        print("🚨🚨🚨 同步小组件按钮被点击！")
+                        // 保存当前配置并立即同步到小组件
+                        saveAllConfigurations()
+                        forceRefreshWidgets()
+                        print("🚨🚨🚨 同步小组件按钮处理完成！")
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                            Text("同步小组件")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                    }
+
+                    // 重置按钮 - 保留，用于恢复默认设置
+                    Button(action: {
+                        resetToDefaults()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("重置")
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.orange)
+                        .cornerRadius(6)
+                    }
 
                     Button(action: {
                         showingWidgetGuide = true
@@ -436,8 +950,326 @@ struct WidgetConfigView: View {
             }
         }
         .onAppear {
+            print("🔥🔥🔥 WidgetConfigView: 开始强制加载数据...")
+
+            // 🔥🔥🔥 关键修复：强制检查和初始化UserDefaults数据
+            forceInitializeUserDefaults()
+
+            // 1. 强制刷新所有基础数据
             dataSyncCenter.refreshAllData()
-            print("🔄 WidgetConfigView: 统一数据中心已刷新")
+
+            // 2. 强制重新加载用户选择
+            dataSyncCenter.refreshUserSelections()
+
+            // 3. 强制UI更新
+            dataSyncCenter.forceUIRefresh()
+
+            // 4. 延迟再次刷新确保数据同步
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                print("🔥🔥🔥 WidgetConfigView: 延迟刷新数据...")
+                self.dataSyncCenter.refreshUserSelections()
+                self.dataSyncCenter.forceUIRefresh()
+
+                print("🔥🔥🔥 WidgetConfigView: 最终数据状态:")
+                print("   应用: \(self.dataSyncCenter.selectedApps)")
+                print("   AI助手: \(self.dataSyncCenter.selectedAIAssistants)")
+                print("   搜索引擎: \(self.dataSyncCenter.selectedSearchEngines)")
+                print("   快捷操作: \(self.dataSyncCenter.selectedQuickActions)")
+            }
+
+            print("🔥🔥🔥 WidgetConfigView: 强制加载完成")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            print("🔥🔥🔥 应用进入前台，强制刷新数据...")
+            dataSyncCenter.refreshUserSelections()
+            dataSyncCenter.forceUIRefresh()
+        }
+    }
+
+    // MARK: - 保存所有配置
+    private func saveAllConfigurations() {
+        print("🔥🔥🔥 手动保存所有配置开始...")
+
+        // 🔥🔥🔥 关键修复：保存用户当前选择
+        saveUserSelectionsToStorage()
+
+        // 立即同步到小组件
+        dataSyncCenter.immediateSyncToWidgets()
+
+        // 强制UI刷新
+        dataSyncCenter.forceUIRefresh()
+
+        // 验证数据同步
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.dataSyncCenter.validateDataSync()
+        }
+
+        print("🔥🔥🔥 手动保存所有配置完成")
+
+        // 显示保存成功提示
+        showSaveSuccessAlert()
+    }
+
+    // MARK: - 保存用户选择到存储
+    private func saveUserSelectionsToStorage() {
+        print("🔥🔥🔥 开始保存用户选择到存储...")
+
+        let defaults = UserDefaults.standard
+        let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared")
+
+        // 获取当前UI状态中的用户选择
+        let currentEngines = dataSyncCenter.selectedSearchEngines
+        let currentApps = dataSyncCenter.selectedApps
+        let currentAI = dataSyncCenter.selectedAIAssistants
+        let currentActions = dataSyncCenter.selectedQuickActions
+
+        print("🔥🔥🔥 当前用户选择状态:")
+        print("   搜索引擎: \(currentEngines)")
+        print("   应用: \(currentApps)")
+        print("   AI助手: \(currentAI)")
+        print("   快捷操作: \(currentActions)")
+
+        // 保存到UserDefaults.standard
+        defaults.set(currentEngines, forKey: "iosbrowser_engines")
+        defaults.set(currentApps, forKey: "iosbrowser_apps")
+        defaults.set(currentAI, forKey: "iosbrowser_ai")
+        defaults.set(currentActions, forKey: "iosbrowser_actions")
+        defaults.set(Date().timeIntervalSince1970, forKey: "iosbrowser_last_update")
+
+        let stdSync = defaults.synchronize()
+        print("🔥🔥🔥 UserDefaults保存同步: \(stdSync)")
+
+        // 保存到App Groups
+        if let shared = sharedDefaults {
+            shared.set(currentEngines, forKey: "widget_search_engines")
+            shared.set(currentApps, forKey: "widget_apps")
+            shared.set(currentAI, forKey: "widget_ai_assistants")
+            shared.set(currentActions, forKey: "widget_quick_actions")
+            shared.set(Date().timeIntervalSince1970, forKey: "widget_last_update")
+
+            let sharedSync = shared.synchronize()
+            print("🔥🔥🔥 App Groups保存同步: \(sharedSync)")
+
+            // 验证App Groups保存结果
+            let verifyEngines = shared.stringArray(forKey: "widget_search_engines") ?? []
+            let verifyApps = shared.stringArray(forKey: "widget_apps") ?? []
+            let verifyAI = shared.stringArray(forKey: "widget_ai_assistants") ?? []
+            let verifyActions = shared.stringArray(forKey: "widget_quick_actions") ?? []
+
+            print("🔥🔥🔥 App Groups保存验证:")
+            print("   搜索引擎: \(verifyEngines)")
+            print("   应用: \(verifyApps)")
+            print("   AI助手: \(verifyAI)")
+            print("   快捷操作: \(verifyActions)")
+
+            let success = verifyEngines == currentEngines &&
+                         verifyApps == currentApps &&
+                         verifyAI == currentAI &&
+                         verifyActions == currentActions
+
+            if success {
+                print("✅ App Groups保存验证成功")
+            } else {
+                print("❌ App Groups保存验证失败")
+            }
+        } else {
+            print("❌ App Groups不可用")
+        }
+
+        print("🔥🔥🔥 用户选择保存到存储完成")
+    }
+
+    private func showSaveSuccessAlert() {
+        // 这里可以添加一个成功提示，比如HUD或者Toast
+        print("✅ 配置已保存成功！")
+    }
+
+    // MARK: - 测试数据保存和加载（不修改用户数据）
+    private func testDataSaveAndLoad() {
+        print("🧪🧪🧪 开始测试数据保存和加载验证...")
+
+        // 1. 显示当前内存中的数据
+        print("📱 当前内存数据:")
+        print("   搜索引擎: \(dataSyncCenter.selectedSearchEngines)")
+        print("   AI助手: \(dataSyncCenter.selectedAIAssistants)")
+        print("   应用: \(dataSyncCenter.selectedApps)")
+        print("   快捷操作: \(dataSyncCenter.selectedQuickActions)")
+
+        // 2. 验证当前数据是否已保存到UserDefaults
+        print("🔍 验证当前数据保存状态...")
+        let defaults = UserDefaults.standard
+        defaults.synchronize()
+
+        let savedEngines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+        let savedAI = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
+        let savedApps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
+        let savedActions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+        let lastUpdate = defaults.double(forKey: "iosbrowser_last_update")
+
+        print("💾 UserDefaults中保存的数据:")
+        print("   搜索引擎: \(savedEngines)")
+        print("   AI助手: \(savedAI)")
+        print("   应用: \(savedApps)")
+        print("   快捷操作: \(savedActions)")
+        print("   最后更新: \(Date(timeIntervalSince1970: lastUpdate))")
+
+        // 3. 检查数据一致性
+        let enginesMatch = dataSyncCenter.selectedSearchEngines == savedEngines
+        let aiMatch = dataSyncCenter.selectedAIAssistants == savedAI
+        let appsMatch = dataSyncCenter.selectedApps == savedApps
+        let actionsMatch = dataSyncCenter.selectedQuickActions == savedActions
+
+        print("🔍 数据一致性检查:")
+        print("   搜索引擎: \(enginesMatch ? "✅ 一致" : "❌ 不一致")")
+        print("   AI助手: \(aiMatch ? "✅ 一致" : "❌ 不一致")")
+        print("   应用: \(appsMatch ? "✅ 一致" : "❌ 不一致")")
+        print("   快捷操作: \(actionsMatch ? "✅ 一致" : "❌ 不一致")")
+
+        // 4. 总结测试结果
+        let allMatch = enginesMatch && aiMatch && appsMatch && actionsMatch
+        if allMatch {
+            print("🎉 测试通过！所有数据已正确保存")
+        } else {
+            print("⚠️ 测试发现问题！部分数据未正确保存")
+            print("💡 建议：点击'保存'按钮手动保存数据")
+        }
+
+        print("🧪🧪🧪 测试验证完成！")
+    }
+
+    // MARK: - 重置到默认设置
+    private func resetToDefaults() {
+        print("🔄🔄🔄 开始重置到默认设置...")
+
+        // 重置到默认值
+        dataSyncCenter.selectedSearchEngines = ["baidu", "google"]
+        dataSyncCenter.selectedAIAssistants = ["deepseek", "qwen"]
+        dataSyncCenter.selectedApps = ["taobao", "zhihu", "douyin"]
+        dataSyncCenter.selectedQuickActions = ["search", "bookmark"]
+
+        print("📱 已重置到默认值:")
+        print("   搜索引擎: \(dataSyncCenter.selectedSearchEngines)")
+        print("   AI助手: \(dataSyncCenter.selectedAIAssistants)")
+        print("   应用: \(dataSyncCenter.selectedApps)")
+        print("   快捷操作: \(dataSyncCenter.selectedQuickActions)")
+
+        // 强制UI刷新
+        dataSyncCenter.forceUIRefresh()
+
+        // 立即保存
+        dataSyncCenter.immediateSyncToWidgets()
+
+        // 验证重置结果
+        dataSyncCenter.validateDataSync()
+
+        print("🔄🔄🔄 重置完成！")
+    }
+
+    // MARK: - 强制刷新小组件
+    private func forceRefreshWidgets() {
+        print("🔄🔄🔄 用户手动强制刷新小组件...")
+
+        // 1. 立即保存当前数据
+        dataSyncCenter.immediateSyncToWidgets()
+
+        // 2. 多次强制刷新
+        for i in 0..<5 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i)) {
+                print("🔄🔄🔄 第\(i+1)次强制刷新小组件...")
+                self.dataSyncCenter.reloadAllWidgets()
+            }
+        }
+
+        // 3. 显示提示信息
+        print("🔄🔄🔄 已发送多次刷新请求，请等待5-10秒查看小组件更新")
+
+        // 4. 验证当前数据
+        let defaults = UserDefaults.standard
+        let engines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+        print("🔄🔄🔄 当前UserDefaults中的搜索引擎: \(engines)")
+        print("🔄🔄🔄 小组件应该显示: \(engines.joined(separator: ", "))")
+    }
+
+    // MARK: - 强制初始化UserDefaults数据
+    private func forceInitializeUserDefaults() {
+        print("🔥🔥🔥 开始强制初始化UserDefaults数据...")
+
+        let defaults = UserDefaults.standard
+
+        // 检查并初始化搜索引擎数据
+        if defaults.stringArray(forKey: "iosbrowser_engines")?.isEmpty != false {
+            let defaultEngines = ["baidu", "google"]
+            defaults.set(defaultEngines, forKey: "iosbrowser_engines")
+            print("🔥🔥🔥 强制初始化: 保存默认搜索引擎 \(defaultEngines)")
+        }
+
+        // 检查并初始化应用数据
+        if defaults.stringArray(forKey: "iosbrowser_apps")?.isEmpty != false {
+            let defaultApps = ["taobao", "zhihu", "douyin"]
+            defaults.set(defaultApps, forKey: "iosbrowser_apps")
+            print("🔥🔥🔥 强制初始化: 保存默认应用 \(defaultApps)")
+        }
+
+        // 检查并初始化AI助手数据
+        if defaults.stringArray(forKey: "iosbrowser_ai")?.isEmpty != false {
+            let defaultAI = ["deepseek", "qwen"]
+            defaults.set(defaultAI, forKey: "iosbrowser_ai")
+            print("🔥🔥🔥 强制初始化: 保存默认AI助手 \(defaultAI)")
+        }
+
+        // 检查并初始化快捷操作数据
+        if defaults.stringArray(forKey: "iosbrowser_actions")?.isEmpty != false {
+            let defaultActions = ["search", "bookmark"]
+            defaults.set(defaultActions, forKey: "iosbrowser_actions")
+            print("🔥🔥🔥 强制初始化: 保存默认快捷操作 \(defaultActions)")
+        }
+
+        // 强制同步
+        let syncResult = defaults.synchronize()
+        print("🔥🔥🔥 强制初始化: UserDefaults同步结果 \(syncResult)")
+
+        // 立即刷新小组件
+        dataSyncCenter.reloadAllWidgets()
+        print("🔥🔥🔥 强制初始化: 已触发小组件刷新")
+
+        print("🔥🔥🔥 强制初始化UserDefaults数据完成")
+    }
+
+    // MARK: - 测试数据联动
+    private func testDataSync() {
+        print("🧪🧪🧪 开始测试数据联动...")
+
+        // 测试数据
+        let testApps = ["wechat", "alipay", "taobao", "jd"]
+        let testAI = ["chatgpt", "deepseek", "claude"]
+        let testEngines = ["google", "bing", "duckduckgo"]
+        let testActions = ["search", "bookmark", "translate"]
+
+        print("🧪 测试应用数据联动...")
+        dataSyncCenter.updateAppSelection(testApps)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🧪 测试AI助手数据联动...")
+            self.dataSyncCenter.updateAISelection(testAI)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            print("🧪 测试搜索引擎数据联动...")
+            self.dataSyncCenter.updateSearchEngineSelection(testEngines)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            print("🧪 测试快捷操作数据联动...")
+            self.dataSyncCenter.updateQuickActionSelection(testActions)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            print("🧪🧪🧪 数据联动测试完成！")
+            print("🧪 请检查小组件是否显示以下数据:")
+            print("   应用: \(testApps)")
+            print("   AI助手: \(testAI)")
+            print("   搜索引擎: \(testEngines)")
+            print("   快捷操作: \(testActions)")
         }
     }
 
@@ -464,116 +1296,239 @@ struct WidgetConfigView: View {
 
 // MARK: - 配置子视图（简化版本）
 struct SearchEngineConfigView: View {
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
+    @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
+    @State private var selectedCategory = "国内搜索"
 
-    // 搜索引擎选项
-    private let searchEngines = [
-        ("baidu", "百度", "magnifyingglass.circle.fill", Color.blue),
-        ("google", "Google", "globe", Color.red),
-        ("bing", "必应", "b.circle.fill", Color.blue),
-        ("sogou", "搜狗", "s.circle.fill", Color.orange),
-        ("360", "360搜索", "360.circle.fill", Color.green),
-        ("duckduckgo", "DuckDuckGo", "d.circle.fill", Color.orange)
-    ]
+    // 按分类组织的搜索引擎 - 分解为更小的部分以避免编译器超时
+    private var domesticEngines: [(String, String, String, Color)] {
+        [
+            ("baidu", "百度", "magnifyingglass.circle.fill", Color.blue),
+            ("sogou", "搜狗", "s.circle.fill", Color.orange),
+            ("360", "360搜索", "360.circle.fill", Color.green),
+            ("shenma", "神马搜索", "s.square.fill", Color.purple),
+            ("chinaso", "中国搜索", "c.circle.fill", Color.red),
+            ("haosou", "好搜", "h.circle.fill", Color.cyan)
+        ]
+    }
+
+    private var internationalEngines: [(String, String, String, Color)] {
+        [
+            ("google", "Google", "globe", Color.red),
+            ("bing", "必应", "b.circle.fill", Color.blue),
+            ("duckduckgo", "DuckDuckGo", "shield.fill", Color.orange),
+            ("yahoo", "Yahoo", "y.circle.fill", Color.purple),
+            ("yandex", "Yandex", "y.square.fill", Color.red),
+            ("ask", "Ask", "questionmark.circle.fill", Color.green)
+        ]
+    }
+
+    private var aiEngines: [(String, String, String, Color)] {
+        [
+            ("perplexity", "Perplexity", "brain.head.profile", Color.purple),
+            ("you", "You.com", "y.circle", Color.blue),
+            ("phind", "Phind", "p.circle.fill", Color.green),
+            ("andi", "Andi", "a.circle.fill", Color.orange),
+            ("neeva", "Neeva", "n.circle.fill", Color.indigo),
+            ("kagi", "Kagi", "k.circle.fill", Color.mint)
+        ]
+    }
+
+    private var professionalEngines: [(String, String, String, Color)] {
+        [
+            ("scholar", "谷歌学术", "graduationcap.fill", Color.blue),
+            ("github", "GitHub", "chevron.left.forwardslash.chevron.right", Color.black),
+            ("stackoverflow", "Stack Overflow", "questionmark.square.fill", Color.orange),
+            ("arxiv", "arXiv", "doc.text.fill", Color.red),
+            ("pubmed", "PubMed", "cross.case.fill", Color.green),
+            ("ieee", "IEEE Xplore", "bolt.circle.fill", Color.blue)
+        ]
+    }
+
+    private var searchEngineCategories: [String: [(String, String, String, Color)]] {
+        [
+            "国内搜索": domesticEngines,
+            "国际搜索": internationalEngines,
+            "AI搜索": aiEngines,
+            "专业搜索": professionalEngines
+        ]
+    }
+
+    private var categories: [String] {
+        Array(searchEngineCategories.keys).sorted()
+    }
+
+    private var currentEngines: [(String, String, String, Color)] {
+        searchEngineCategories[selectedCategory] ?? []
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // 标题和统计
-            VStack(alignment: .leading, spacing: 8) {
+            // 简约标题栏
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("搜索引擎选择")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        Text("搜索引擎")
+                            .font(.title3)
+                            .fontWeight(.semibold)
 
-                        Text("选择小组件中显示的搜索引擎")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 12) {
+                            Label("\(dataSyncCenter.selectedSearchEngines.count)", systemImage: "checkmark.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.blue)
 
-                        Text("当前已选择: \(dataSyncCenter.selectedSearchEngines.count) 个")
-                            .font(.caption)
-                            .foregroundColor(.blue)
+                            Label("已同步", systemImage: "icloud.and.arrow.up")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
                     }
 
                     Spacer()
 
-                    Button(action: {
-                        dataSyncCenter.refreshAllData()
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.blue)
-                            .font(.title3)
-                    }
+                    // 配置提示
+                    Text("按分类选择")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(6)
                 }
 
-                Text("配置将同步到桌面小组件")
-                    .font(.caption)
-                    .foregroundColor(.green)
+                // 分类选择器
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(categories, id: \.self) { category in
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedCategory = category
+                                }
+                            }) {
+                                Text(category)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(selectedCategory == category ? .white : .blue)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(selectedCategory == category ? Color.blue : Color.blue.opacity(0.1))
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
             }
-            .padding(.horizontal)
-            .padding(.top)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
 
             // 搜索引擎网格
             ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-                    ForEach(searchEngines, id: \.0) { engine in
-                        Button(action: {
-                            print("🔄 点击搜索引擎: \(engine.1) (\(engine.0))")
-                            toggleSearchEngine(engine.0)
-                        }) {
-                            VStack(spacing: 8) {
-                                Image(systemName: engine.2)
-                                    .font(.system(size: 24))
-                                    .foregroundColor(engine.3)
-
-                                Text(engine.1)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .lineLimit(1)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
+                    ForEach(currentEngines, id: \.0) { engine in
+                        SearchEngineCard(
+                            engine: engine,
+                            isSelected: dataSyncCenter.selectedSearchEngines.contains(engine.0),
+                            onTap: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    toggleSearchEngine(engine.0)
+                                }
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(dataSyncCenter.selectedSearchEngines.contains(engine.0) ? engine.3.opacity(0.2) : Color(.systemGray6))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(dataSyncCenter.selectedSearchEngines.contains(engine.0) ? engine.3 : Color.clear, lineWidth: 2)
-                                    )
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
+                        )
                     }
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                // 底部提示
+                VStack(spacing: 8) {
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+
+                        Text("最多选择4个搜索引擎，至少保留1个")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
             }
         }
         .onAppear {
             dataSyncCenter.refreshAllData()
-            print("🔍 SearchEngineConfigView 加载")
-            print("🔍 当前选中: \(dataSyncCenter.selectedSearchEngines)")
+            dataSyncCenter.refreshUserSelections()
+            dataSyncCenter.forceUIRefresh()
         }
     }
 
     private func toggleSearchEngine(_ engineId: String) {
+        print("🚨🚨🚨 toggleSearchEngine 被调用: \(engineId)")
+
         var engines = dataSyncCenter.selectedSearchEngines
+        print("🚨 当前搜索引擎: \(engines)")
 
         if let index = engines.firstIndex(of: engineId) {
             // 至少保留1个
             if engines.count > 1 {
                 engines.remove(at: index)
+                print("🚨 移除搜索引擎: \(engineId)")
+            } else {
+                print("🚨 至少保留1个搜索引擎，不移除: \(engineId)")
+                return
             }
         } else if engines.count < 4 {
             engines.append(engineId)
+            print("🚨 添加搜索引擎: \(engineId)")
+        } else {
+            print("🚨 搜索引擎数量已达上限，不添加: \(engineId)")
+            return
         }
 
-        dataSyncCenter.updateSearchEngineSelection(engines)
+        print("🚨 新的搜索引擎列表: \(engines)")
+
+        // 🔥🔥🔥 统一数据保存：同时保存到两个键值确保兼容性
+        dataSyncCenter.selectedSearchEngines = engines
+
+        // 保存到标准UserDefaults（小组件读取）
+        UserDefaults.standard.set(engines, forKey: "iosbrowser_engines")
+
+        // 同时保存到App Groups键值（如果配置了App Groups）
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.set(engines, forKey: "widget_search_engines")
+            sharedDefaults.synchronize()
+            print("🚨 已保存到App Groups")
+        }
+
+        let syncResult = UserDefaults.standard.synchronize()
+        print("🚨 已保存搜索引擎到UserDefaults，同步结果: \(syncResult)")
+
+        // 立即刷新小组件
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+            print("🚨 已刷新小组件")
+        }
+
+        // 验证保存结果
+        let savedEngines = UserDefaults.standard.stringArray(forKey: "iosbrowser_engines") ?? []
+        print("🚨 验证保存结果: \(savedEngines)")
+        if savedEngines == engines {
+            print("🚨 ✅ 搜索引擎数据保存成功！")
+        } else {
+            print("🚨 ❌ 搜索引擎数据保存失败！")
+        }
     }
 }
 
 struct UnifiedAppConfigView: View {
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
+    @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
     @State private var selectedCategory = "全部"
 
     // 应用分类
@@ -695,13 +1650,40 @@ struct UnifiedAppConfigView: View {
             }
         }
         .onAppear {
+            print("🔥🔥🔥 UnifiedAppConfigView onAppear 开始...")
+
+            // 1. 刷新基础数据
             dataSyncCenter.refreshAllData()
-            print("📱 UnifiedAppConfigView 加载")
+
+            // 2. 强制刷新用户选择（关键修复）
+            dataSyncCenter.refreshUserSelections()
+
+            // 3. 强制UI更新
+            dataSyncCenter.forceUIRefresh()
+
+            print("🔥🔥🔥 UnifiedAppConfigView 数据加载完成")
             print("📱 总应用数量: \(dataSyncCenter.allApps.count)")
             print("📱 当前分类: \(selectedCategory)")
             print("📱 当前分类应用数量: \(availableApps.count)")
-            print("📱 当前选中: \(dataSyncCenter.selectedApps)")
+            print("🔥🔥🔥 当前选中的应用: \(dataSyncCenter.selectedApps)")
             print("📱 应用列表: \(dataSyncCenter.allApps.map { $0.name })")
+
+            // 4. 延迟验证确保数据正确
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                print("🔥🔥🔥 UnifiedAppConfigView 延迟验证:")
+                print("   内存中的选择: \(self.dataSyncCenter.selectedApps)")
+
+                // 验证UserDefaults中的数据
+                let defaults = UserDefaults.standard
+                let savedApps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
+                print("   UserDefaults中的数据: \(savedApps)")
+
+                if self.dataSyncCenter.selectedApps != savedApps && !savedApps.isEmpty {
+                    print("⚠️ 应用数据不一致，强制重新加载...")
+                    self.dataSyncCenter.refreshUserSelections()
+                    self.dataSyncCenter.forceUIRefresh()
+                }
+            }
         }
         .onChange(of: selectedCategory) { _ in
             print("📱 切换分类到: \(selectedCategory)，应用数量: \(availableApps.count)")
@@ -709,23 +1691,65 @@ struct UnifiedAppConfigView: View {
     }
 
     private func toggleApp(_ appId: String) {
+        print("🚨🚨🚨 toggleApp 被调用: \(appId)")
+
         var apps = dataSyncCenter.selectedApps
+        print("🚨 当前应用: \(apps)")
 
         if let index = apps.firstIndex(of: appId) {
             // 至少保留1个
             if apps.count > 1 {
                 apps.remove(at: index)
+                print("🚨 移除应用: \(appId)")
+            } else {
+                print("🚨 至少保留1个应用，不移除: \(appId)")
+                return
             }
         } else if apps.count < 8 {
             apps.append(appId)
+            print("🚨 添加应用: \(appId)")
+        } else {
+            print("🚨 应用数量已达上限，不添加: \(appId)")
+            return
         }
 
-        dataSyncCenter.updateAppSelection(apps)
+        print("🚨 新的应用列表: \(apps)")
+
+        // 🔥🔥🔥 统一数据保存：同时保存到两个键值确保兼容性
+        dataSyncCenter.selectedApps = apps
+
+        // 保存到标准UserDefaults（小组件读取）
+        UserDefaults.standard.set(apps, forKey: "iosbrowser_apps")
+
+        // 同时保存到App Groups键值（如果配置了App Groups）
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.set(apps, forKey: "widget_apps")
+            sharedDefaults.synchronize()
+            print("🚨 已保存到App Groups")
+        }
+
+        let syncResult = UserDefaults.standard.synchronize()
+        print("🚨 已保存应用到UserDefaults，同步结果: \(syncResult)")
+
+        // 立即刷新小组件
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+            print("🚨 已刷新小组件")
+        }
+
+        // 验证保存结果
+        let savedApps = UserDefaults.standard.stringArray(forKey: "iosbrowser_apps") ?? []
+        print("🚨 验证保存结果: \(savedApps)")
+        if savedApps == apps {
+            print("🚨 ✅ 应用数据保存成功！")
+        } else {
+            print("🚨 ❌ 应用数据保存失败！")
+        }
     }
 }
 
 struct UnifiedAIConfigView: View {
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
+    @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
     @StateObject private var apiManager = APIConfigManager.shared
     @State private var showOnlyAvailable = true
 
@@ -898,12 +1922,39 @@ struct UnifiedAIConfigView: View {
             }
         }
         .onAppear {
+            print("🔥🔥🔥 UnifiedAIConfigView onAppear 开始...")
+
+            // 1. 刷新基础数据
             dataSyncCenter.refreshAllData()
-            print("🤖 UnifiedAIConfigView 加载")
+
+            // 2. 强制刷新用户选择（关键修复）
+            dataSyncCenter.refreshUserSelections()
+
+            // 3. 强制UI更新
+            dataSyncCenter.forceUIRefresh()
+
+            print("🔥🔥🔥 UnifiedAIConfigView 数据加载完成")
             print("🤖 所有AI数量: \(dataSyncCenter.allAIAssistants.count)")
             print("🤖 可用AI数量: \(dataSyncCenter.availableAIAssistants.count)")
-            print("🤖 当前选中: \(dataSyncCenter.selectedAIAssistants)")
+            print("🔥🔥🔥 当前选中的AI助手: \(dataSyncCenter.selectedAIAssistants)")
             print("🤖 AI列表: \(dataSyncCenter.allAIAssistants.map { $0.name })")
+
+            // 4. 延迟验证确保数据正确
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                print("🔥🔥🔥 UnifiedAIConfigView 延迟验证:")
+                print("   内存中的选择: \(self.dataSyncCenter.selectedAIAssistants)")
+
+                // 验证UserDefaults中的数据
+                let defaults = UserDefaults.standard
+                let savedAI = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
+                print("   UserDefaults中的数据: \(savedAI)")
+
+                if self.dataSyncCenter.selectedAIAssistants != savedAI && !savedAI.isEmpty {
+                    print("⚠️ AI数据不一致，强制重新加载...")
+                    self.dataSyncCenter.refreshUserSelections()
+                    self.dataSyncCenter.forceUIRefresh()
+                }
+            }
         }
         .onChange(of: apiManager.apiKeys) { _ in
             print("🤖 API配置变化，重新加载AI列表")
@@ -915,23 +1966,65 @@ struct UnifiedAIConfigView: View {
     }
 
     private func toggleAssistant(_ assistantId: String) {
+        print("🚨🚨🚨 toggleAssistant 被调用: \(assistantId)")
+
         var assistants = dataSyncCenter.selectedAIAssistants
+        print("🚨 当前AI助手: \(assistants)")
 
         if let index = assistants.firstIndex(of: assistantId) {
             // 至少保留1个
             if assistants.count > 1 {
                 assistants.remove(at: index)
+                print("🚨 移除AI助手: \(assistantId)")
+            } else {
+                print("🚨 至少保留1个AI助手，不移除: \(assistantId)")
+                return
             }
         } else if assistants.count < 8 {
             assistants.append(assistantId)
+            print("🚨 添加AI助手: \(assistantId)")
+        } else {
+            print("🚨 AI助手数量已达上限，不添加: \(assistantId)")
+            return
         }
 
-        dataSyncCenter.updateAISelection(assistants)
+        print("🚨 新的AI助手列表: \(assistants)")
+
+        // 🔥🔥🔥 统一数据保存：同时保存到两个键值确保兼容性
+        dataSyncCenter.selectedAIAssistants = assistants
+
+        // 保存到标准UserDefaults（小组件读取）
+        UserDefaults.standard.set(assistants, forKey: "iosbrowser_ai")
+
+        // 同时保存到App Groups键值（如果配置了App Groups）
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.set(assistants, forKey: "widget_ai_assistants")
+            sharedDefaults.synchronize()
+            print("🚨 已保存到App Groups")
+        }
+
+        let syncResult = UserDefaults.standard.synchronize()
+        print("🚨 已保存AI助手到UserDefaults，同步结果: \(syncResult)")
+
+        // 立即刷新小组件
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+            print("🚨 已刷新小组件")
+        }
+
+        // 验证保存结果
+        let savedAssistants = UserDefaults.standard.stringArray(forKey: "iosbrowser_ai") ?? []
+        print("🚨 验证保存结果: \(savedAssistants)")
+        if savedAssistants == assistants {
+            print("🚨 ✅ AI助手数据保存成功！")
+        } else {
+            print("🚨 ❌ AI助手数据保存失败！")
+        }
     }
 }
 
 struct QuickActionConfigView: View {
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
+    @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
 
     // 快捷操作选项
     private let quickActions = [
@@ -1019,25 +2112,100 @@ struct QuickActionConfigView: View {
             }
         }
         .onAppear {
+            print("🔥🔥🔥 QuickActionConfigView onAppear 开始...")
+
+            // 1. 刷新基础数据
             dataSyncCenter.refreshAllData()
-            print("⚡ QuickActionConfigView 加载")
-            print("⚡ 当前选中: \(dataSyncCenter.selectedQuickActions)")
+
+            // 2. 强制刷新用户选择（关键修复）
+            dataSyncCenter.refreshUserSelections()
+
+            // 3. 强制UI更新
+            dataSyncCenter.forceUIRefresh()
+
+            print("🔥🔥🔥 QuickActionConfigView 数据加载完成")
+            print("🔥🔥🔥 当前选中的快捷操作: \(dataSyncCenter.selectedQuickActions)")
+
+            // 4. 延迟验证确保数据正确
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                print("🔥🔥🔥 QuickActionConfigView 延迟验证:")
+                print("   内存中的选择: \(self.dataSyncCenter.selectedQuickActions)")
+
+                // 验证UserDefaults中的数据
+                let defaults = UserDefaults.standard
+                let savedActions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+                print("   UserDefaults中的数据: \(savedActions)")
+
+                if self.dataSyncCenter.selectedQuickActions != savedActions && !savedActions.isEmpty {
+                    print("⚠️ 快捷操作数据不一致，强制重新加载...")
+                    self.dataSyncCenter.refreshUserSelections()
+                    self.dataSyncCenter.forceUIRefresh()
+                }
+            }
         }
     }
 
     private func toggleQuickAction(_ actionId: String) {
+        print("🚨🚨🚨 ===== toggleQuickAction 被调用 =====")
+        print("🚨🚨🚨 操作的actionId: \(actionId)")
+        print("🚨🚨🚨 这是用户点击操作的明确证据！")
+
         var actions = dataSyncCenter.selectedQuickActions
+        print("🚨 当前快捷操作: \(actions)")
 
         if let index = actions.firstIndex(of: actionId) {
             // 至少保留1个
             if actions.count > 1 {
                 actions.remove(at: index)
+                print("🚨 移除快捷操作: \(actionId)")
+            } else {
+                print("🚨 至少保留1个快捷操作，不移除: \(actionId)")
+                return
             }
         } else if actions.count < 6 {
             actions.append(actionId)
+            print("🚨 添加快捷操作: \(actionId)")
+        } else {
+            print("🚨 快捷操作数量已达上限，不添加: \(actionId)")
+            return
         }
 
-        dataSyncCenter.updateQuickActionSelection(actions)
+        print("🚨 新的快捷操作列表: \(actions)")
+
+        // 🔥🔥🔥 统一数据保存：同时保存到两个键值确保兼容性
+        dataSyncCenter.selectedQuickActions = actions
+
+        // 保存到标准UserDefaults（小组件读取）
+        UserDefaults.standard.set(actions, forKey: "iosbrowser_actions")
+
+        // 同时保存到App Groups键值（如果配置了App Groups）
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.set(actions, forKey: "widget_quick_actions")
+            sharedDefaults.synchronize()
+            print("🚨 已保存到App Groups")
+        }
+
+        let syncResult = UserDefaults.standard.synchronize()
+        print("🚨 已保存快捷操作到UserDefaults，同步结果: \(syncResult)")
+
+        // 立即刷新小组件
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+            print("🚨 已刷新小组件")
+        }
+
+        // 验证保存结果
+        let savedActions = UserDefaults.standard.stringArray(forKey: "iosbrowser_actions") ?? []
+        print("🚨 验证保存结果: \(savedActions)")
+        if savedActions == actions {
+            print("🚨🚨🚨 ✅✅✅ 快捷操作数据保存成功！✅✅✅")
+            print("🚨🚨🚨 用户选择已保存: \(savedActions)")
+            print("🚨🚨🚨 小组件应该显示这些数据而不是默认数据！")
+        } else {
+            print("🚨🚨🚨 ❌❌❌ 快捷操作数据保存失败！❌❌❌")
+            print("🚨🚨🚨 期望: \(actions)")
+            print("🚨🚨🚨 实际: \(savedActions)")
+        }
     }
 }
 
@@ -1315,6 +2483,10 @@ struct ContentView: View {
             WeChatTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onAppear {
+            // 🔥🔥🔥 应用启动时立即初始化小组件数据
+            initializeWidgetDataOnAppStart()
+        }
         .onOpenURL { url in
             handleDeepLink(url)
         }
@@ -1328,6 +2500,65 @@ struct ContentView: View {
                 // 通过深度链接处理器传递搜索查询
                 // SearchView会监听这个变化
             }
+        }
+    }
+
+    // MARK: - 应用启动时初始化小组件数据
+    private func initializeWidgetDataOnAppStart() {
+        print("🚨🚨🚨 ===== 应用启动时初始化小组件数据开始 =====")
+        print("🚀🚀🚀 应用启动时初始化小组件数据...")
+
+        let defaults = UserDefaults.standard
+        var needsSync = false
+
+        // 检查并初始化搜索引擎数据
+        if defaults.stringArray(forKey: "iosbrowser_engines")?.isEmpty != false {
+            let defaultEngines = ["baidu", "google"]
+            defaults.set(defaultEngines, forKey: "iosbrowser_engines")
+            print("🚀 应用启动初始化: 保存默认搜索引擎 \(defaultEngines)")
+            needsSync = true
+        }
+
+        // 检查并初始化应用数据
+        if defaults.stringArray(forKey: "iosbrowser_apps")?.isEmpty != false {
+            let defaultApps = ["taobao", "zhihu", "douyin"]
+            defaults.set(defaultApps, forKey: "iosbrowser_apps")
+            print("🚀 应用启动初始化: 保存默认应用 \(defaultApps)")
+            needsSync = true
+        }
+
+        // 检查并初始化AI助手数据
+        if defaults.stringArray(forKey: "iosbrowser_ai")?.isEmpty != false {
+            let defaultAI = ["deepseek", "qwen"]
+            defaults.set(defaultAI, forKey: "iosbrowser_ai")
+            print("🚀 应用启动初始化: 保存默认AI助手 \(defaultAI)")
+            needsSync = true
+        }
+
+        // 检查并初始化快捷操作数据
+        if defaults.stringArray(forKey: "iosbrowser_actions")?.isEmpty != false {
+            let defaultActions = ["search", "bookmark"]
+            defaults.set(defaultActions, forKey: "iosbrowser_actions")
+            print("🚀 应用启动初始化: 保存默认快捷操作 \(defaultActions)")
+            needsSync = true
+        }
+
+        if needsSync {
+            // 强制同步
+            let syncResult = defaults.synchronize()
+            print("🚀 应用启动初始化: UserDefaults同步结果 \(syncResult)")
+
+            // 延迟刷新小组件，确保数据已保存
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                print("🚀 应用启动初始化: 延迟刷新小组件...")
+                if #available(iOS 14.0, *) {
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            }
+
+            print("🚀🚀🚀 应用启动初始化完成，已保存默认数据")
+        } else {
+            print("🚀🚀🚀 应用启动检查完成，数据已存在")
         }
     }
 
@@ -3392,6 +4623,47 @@ struct PromptPickerView: View {
                 }
             )
         }
+    }
+}
+
+// MARK: - 搜索引擎卡片组件
+struct SearchEngineCard: View {
+    let engine: (String, String, String, Color)
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 8) {
+                Image(systemName: engine.2)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(engine.3)
+
+                Text(engine.1)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .foregroundColor(.primary)
+
+                // 选中状态指示器
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.caption)
+                    .foregroundColor(isSelected ? .green : .gray)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? engine.3.opacity(0.15) : Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isSelected ? engine.3 : Color.clear, lineWidth: 1.5)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import WidgetKit
 
 // MARK: - 通知名称扩展
 extension Notification.Name {
@@ -17,6 +18,15 @@ extension Notification.Name {
 struct iOSBrowserApp: App {
     @StateObject private var deepLinkHandler = DeepLinkHandler()
 
+    init() {
+        print("🚨🚨🚨 ===== iOSBrowserApp.init() 被调用 =====")
+        print("🚨🚨🚨 ===== 应用启动，立即初始化数据 =====")
+        print("🚨🚨🚨 ===== 如果你看到这个日志，说明应用启动正常 =====")
+        Self.initializeWidgetData()
+        print("🚨🚨🚨 ===== 应用数据初始化完成 =====")
+        print("🚨🚨🚨 ===== iOSBrowserApp.init() 执行完成 =====")
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -26,6 +36,81 @@ struct iOSBrowserApp: App {
                     deepLinkHandler.handleDeepLink(url)
                 }
         }
+    }
+
+    // MARK: - 应用启动时立即初始化小组件数据
+    static func initializeWidgetData() {
+        print("🚀🚀🚀 开始初始化小组件数据...")
+
+        let defaults = UserDefaults.standard
+        var hasChanges = false
+
+        // 检查并初始化搜索引擎数据
+        if defaults.stringArray(forKey: "iosbrowser_engines") == nil {
+            let defaultEngines = ["baidu", "google"]
+            defaults.set(defaultEngines, forKey: "iosbrowser_engines")
+            print("🚀 初始化搜索引擎: \(defaultEngines)")
+            hasChanges = true
+        } else {
+            let engines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
+            print("🚀 搜索引擎已存在: \(engines)")
+        }
+
+        // 检查并初始化应用数据
+        if defaults.stringArray(forKey: "iosbrowser_apps") == nil {
+            let defaultApps = ["taobao", "zhihu", "douyin"]
+            defaults.set(defaultApps, forKey: "iosbrowser_apps")
+            print("🚀 初始化应用: \(defaultApps)")
+            hasChanges = true
+        } else {
+            let apps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
+            print("🚀 应用已存在: \(apps)")
+        }
+
+        // 检查并初始化AI助手数据
+        if defaults.stringArray(forKey: "iosbrowser_ai") == nil {
+            let defaultAI = ["deepseek", "qwen"]
+            defaults.set(defaultAI, forKey: "iosbrowser_ai")
+            print("🚀 初始化AI助手: \(defaultAI)")
+            hasChanges = true
+        } else {
+            let ai = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
+            print("🚀 AI助手已存在: \(ai)")
+        }
+
+        // 检查并初始化快捷操作数据
+        if defaults.stringArray(forKey: "iosbrowser_actions") == nil {
+            let defaultActions = ["search", "bookmark"]
+            defaults.set(defaultActions, forKey: "iosbrowser_actions")
+            print("🚀 初始化快捷操作: \(defaultActions)")
+            hasChanges = true
+        } else {
+            let actions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+            print("🚀 快捷操作已存在: \(actions)")
+        }
+
+        if hasChanges {
+            // 强制同步
+            let syncResult = defaults.synchronize()
+            print("🚀 UserDefaults同步结果: \(syncResult)")
+
+            // 立即刷新小组件
+            if #available(iOS 14.0, *) {
+                WidgetCenter.shared.reloadAllTimelines()
+                print("🚀 已触发小组件刷新")
+            }
+        }
+
+        print("🚀🚀🚀 小组件数据初始化完成")
+
+        // 🧪🧪🧪 临时测试：强制设置测试数据验证数据流
+        print("🧪🧪🧪 开始强制测试数据验证...")
+        defaults.set(["ai_chat", "translate", "settings"], forKey: "iosbrowser_actions")
+        defaults.synchronize()
+        let testData = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
+        print("🧪🧪🧪 强制设置测试数据: \(testData)")
+        print("🧪🧪🧪 如果小组件显示这些数据，说明数据流正常")
+        print("🧪🧪🧪 如果小组件仍显示默认数据，说明小组件读取有问题")
     }
 }
 

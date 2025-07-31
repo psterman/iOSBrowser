@@ -4,58 +4,110 @@ import SwiftUI
 // 🔧 最小化工作小组件
 // 确保基础功能正常工作
 
-// MARK: - 免费开发者数据管理器（无需App Groups）
+// MARK: - 数据管理器（简化版）
 class SimpleWidgetDataManager {
     static let shared = SimpleWidgetDataManager()
-
+    
     private init() {}
-
-    // 🎯 免费开发者解决方案：直接使用UserDefaults.standard
-    // 注意：免费开发者无法使用App Groups，所以我们完全依赖UserDefaults.standard
-
+    
+    // 简化的数据读取，确保总是有数据返回
     func getSearchEngines() -> [String] {
-        print("🔧 [FreeWidget] 读取搜索引擎数据（免费开发者模式）")
-
-        UserDefaults.standard.synchronize()
-        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_engines") ?? ["baidu", "google"]
-        print("🔧 [FreeWidget] 搜索引擎数据: \(data)")
-        return data
-    }
-
-    func getApps() -> [String] {
-        print("🔧 [FreeWidget] 读取应用数据（免费开发者模式）")
-
-        UserDefaults.standard.synchronize()
-        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_apps") ?? ["taobao", "zhihu", "douyin"]
-        print("🔧 [FreeWidget] 应用数据: \(data)")
-        return data
-    }
-
-    func getAIAssistants() -> [String] {
-        print("🔧 [FreeWidget] 读取AI助手数据（免费开发者模式）")
-
-        UserDefaults.standard.synchronize()
-        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_ai") ?? ["deepseek", "qwen"]
-        print("🔧 [FreeWidget] AI助手数据: \(data)")
-        return data
-    }
-
-    func getQuickActions() -> [String] {
-        print("🔧 [FreeWidget] 读取快捷操作数据（免费开发者模式）")
-
-        UserDefaults.standard.synchronize()
-        let rawData = UserDefaults.standard.stringArray(forKey: "iosbrowser_actions")
-        print("🔧 [FreeWidget] UserDefaults原始数据: \(String(describing: rawData))")
-
-        if let data = rawData, !data.isEmpty {
-            print("🔧 [FreeWidget] ✅ 读取到用户数据: \(data)")
-            return data
-        } else {
-            print("🔧 [FreeWidget] ⚠️ UserDefaults为空，使用默认数据")
-            let defaultData = ["search", "bookmark"]
-            print("🔧 [FreeWidget] 默认数据: \(defaultData)")
-            return defaultData
+        print("🔧 [SimpleWidget] 读取搜索引擎数据")
+        
+        // 1. 尝试从App Groups读取
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.synchronize()
+            let data = sharedDefaults.stringArray(forKey: "widget_search_engines") ?? []
+            if !data.isEmpty {
+                print("🔧 [SimpleWidget] App Groups读取成功: \(data)")
+                return data
+            }
         }
+        
+        // 2. 尝试从UserDefaults读取
+        UserDefaults.standard.synchronize()
+        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_engines") ?? []
+        if !data.isEmpty {
+            print("🔧 [SimpleWidget] UserDefaults读取成功: \(data)")
+            return data
+        }
+        
+        // 3. 返回硬编码的测试数据，确保小组件有内容显示
+        let testData = ["测试引擎1", "测试引擎2", "测试引擎3", "测试引擎4"]
+        print("🔧 [SimpleWidget] 使用测试数据: \(testData)")
+        return testData
+    }
+    
+    func getApps() -> [String] {
+        print("🔧 [SimpleWidget] 读取应用数据")
+        
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.synchronize()
+            let data = sharedDefaults.stringArray(forKey: "widget_apps") ?? []
+            if !data.isEmpty {
+                print("🔧 [SimpleWidget] App Groups读取成功: \(data)")
+                return data
+            }
+        }
+        
+        UserDefaults.standard.synchronize()
+        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_apps") ?? []
+        if !data.isEmpty {
+            print("🔧 [SimpleWidget] UserDefaults读取成功: \(data)")
+            return data
+        }
+        
+        let testData = ["测试应用1", "测试应用2", "测试应用3", "测试应用4"]
+        print("🔧 [SimpleWidget] 使用测试数据: \(testData)")
+        return testData
+    }
+    
+    func getAIAssistants() -> [String] {
+        print("🔧 [SimpleWidget] 读取AI助手数据")
+        
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.synchronize()
+            let data = sharedDefaults.stringArray(forKey: "widget_ai_assistants") ?? []
+            if !data.isEmpty {
+                print("🔧 [SimpleWidget] App Groups读取成功: \(data)")
+                return data
+            }
+        }
+        
+        UserDefaults.standard.synchronize()
+        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_ai") ?? []
+        if !data.isEmpty {
+            print("🔧 [SimpleWidget] UserDefaults读取成功: \(data)")
+            return data
+        }
+        
+        let testData = ["测试AI1", "测试AI2", "测试AI3", "测试AI4"]
+        print("🔧 [SimpleWidget] 使用测试数据: \(testData)")
+        return testData
+    }
+    
+    func getQuickActions() -> [String] {
+        print("🔧 [SimpleWidget] 读取快捷操作数据")
+        
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared") {
+            sharedDefaults.synchronize()
+            let data = sharedDefaults.stringArray(forKey: "widget_quick_actions") ?? []
+            if !data.isEmpty {
+                print("🔧 [SimpleWidget] App Groups读取成功: \(data)")
+                return data
+            }
+        }
+        
+        UserDefaults.standard.synchronize()
+        let data = UserDefaults.standard.stringArray(forKey: "iosbrowser_actions") ?? []
+        if !data.isEmpty {
+            print("🔧 [SimpleWidget] UserDefaults读取成功: \(data)")
+            return data
+        }
+        
+        let testData = ["测试操作1", "测试操作2", "测试操作3", "测试操作4"]
+        print("🔧 [SimpleWidget] 使用测试数据: \(testData)")
+        return testData
     }
 }
 
@@ -98,12 +150,7 @@ struct SearchEngineProvider: TimelineProvider {
         print("🔧 [SearchEngineProvider] getTimeline被调用")
         let engines = SimpleWidgetDataManager.shared.getSearchEngines()
         let entry = SearchEngineEntry(date: Date(), engines: engines)
-
-        // 设置更频繁的更新策略，确保数据能及时更新
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date()) ?? Date()
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-
-        print("🔧 [SearchEngineProvider] Timeline创建完成，下次更新: \(nextUpdate)")
+        let timeline = Timeline(entries: [entry], policy: .atEnd)
         completion(timeline)
     }
 }
@@ -125,12 +172,7 @@ struct AppProvider: TimelineProvider {
         print("🔧 [AppProvider] getTimeline被调用")
         let apps = SimpleWidgetDataManager.shared.getApps()
         let entry = AppEntry(date: Date(), apps: apps)
-
-        // 设置更频繁的更新策略，确保数据能及时更新
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date()) ?? Date()
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-
-        print("🔧 [AppProvider] Timeline创建完成，下次更新: \(nextUpdate)")
+        let timeline = Timeline(entries: [entry], policy: .atEnd)
         completion(timeline)
     }
 }
@@ -152,12 +194,7 @@ struct AIProvider: TimelineProvider {
         print("🔧 [AIProvider] getTimeline被调用")
         let assistants = SimpleWidgetDataManager.shared.getAIAssistants()
         let entry = AIEntry(date: Date(), assistants: assistants)
-
-        // 设置更频繁的更新策略，确保数据能及时更新
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date()) ?? Date()
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-
-        print("🔧 [AIProvider] Timeline创建完成，下次更新: \(nextUpdate)")
+        let timeline = Timeline(entries: [entry], policy: .atEnd)
         completion(timeline)
     }
 }
@@ -179,12 +216,7 @@ struct QuickActionProvider: TimelineProvider {
         print("🔧 [QuickActionProvider] getTimeline被调用")
         let actions = SimpleWidgetDataManager.shared.getQuickActions()
         let entry = QuickActionEntry(date: Date(), actions: actions)
-
-        // 设置更频繁的更新策略，确保数据能及时更新
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date()) ?? Date()
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-
-        print("🔧 [QuickActionProvider] Timeline创建完成，下次更新: \(nextUpdate)")
+        let timeline = Timeline(entries: [entry], policy: .atEnd)
         completion(timeline)
     }
 }

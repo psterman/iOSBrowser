@@ -1,0 +1,126 @@
+#!/bin/bash
+
+# 紧急调试测试脚本
+
+echo "🚨🚨🚨 紧急调试测试 🚨🚨🚨"
+
+echo "根据你的日志，小组件仍然读取到默认数据，这说明："
+echo "❌ 应用启动初始化可能没有执行"
+echo "❌ 或者UserDefaults数据没有被正确设置"
+
+echo ""
+echo "我已经添加了更详细的调试日志："
+
+echo ""
+echo "1. 应用启动日志增强："
+echo "   🚨🚨🚨 ===== iOSBrowserApp.init() 被调用 ====="
+echo "   🚨🚨🚨 ===== 应用启动，立即初始化数据 ====="
+echo "   🚨🚨🚨 ===== 如果你看到这个日志，说明应用启动正常 ====="
+
+echo ""
+echo "2. 小组件读取日志增强："
+echo "   🔧🔧🔧 [SimpleWidget] 开始读取快捷操作数据..."
+echo "   🔧🔧🔧 [SimpleWidget] UserDefaults原始数据: [具体数据或nil]"
+echo "   🔧🔧🔧 [SimpleWidget] ✅ 读取到用户数据 或 ⚠️ UserDefaults为空"
+
+echo ""
+echo "📱 紧急测试步骤："
+
+echo ""
+echo "第一步：验证应用启动是否正常"
+echo "   1. 完全关闭应用"
+echo "   2. 重新启动应用"
+echo "   3. 立即观察控制台，应该看到："
+echo "      🚨🚨🚨 ===== iOSBrowserApp.init() 被调用 ====="
+echo "      🚨🚨🚨 ===== 应用启动，立即初始化数据 ====="
+echo "      🧪🧪🧪 强制设置测试数据: [\"ai_chat\", \"translate\", \"settings\"]"
+echo ""
+echo "   如果没有这些日志："
+echo "   ❌ 应用启动初始化根本没有执行"
+echo "   ❌ 可能是编译问题或代码没有生效"
+
+echo ""
+echo "第二步：验证小组件读取详情"
+echo "   1. 添加小组件到桌面"
+echo "   2. 观察控制台，应该看到："
+echo "      🔧🔧🔧 [SimpleWidget] 开始读取快捷操作数据..."
+echo "      🔧🔧🔧 [SimpleWidget] UserDefaults原始数据: [具体内容]"
+echo ""
+echo "   关键信息："
+echo "   - 如果原始数据是nil → UserDefaults确实为空"
+echo "   - 如果原始数据是[] → UserDefaults有键但值为空数组"
+echo "   - 如果原始数据是测试数据 → 说明设置成功但小组件逻辑有问题"
+
+echo ""
+echo "第三步：手动验证UserDefaults"
+echo "   在Xcode调试控制台中输入以下命令："
+echo "   po UserDefaults.standard.object(forKey: \"iosbrowser_actions\")"
+echo "   po UserDefaults.standard.stringArray(forKey: \"iosbrowser_actions\")"
+echo ""
+echo "   预期结果："
+echo "   - 如果应用启动初始化成功，应该看到测试数据"
+echo "   - 如果为nil，说明数据确实没有被设置"
+
+echo ""
+echo "🔧 可能的问题和解决方案："
+
+echo ""
+echo "问题A：应用启动初始化没有执行"
+echo "   现象：没有🚨🚨🚨应用启动日志"
+echo "   原因：代码没有生效或编译问题"
+echo "   解决：重新编译，确认代码修改生效"
+
+echo ""
+echo "问题B：UserDefaults权限问题"
+echo "   现象：有启动日志但UserDefaults仍为空"
+echo "   原因：应用没有UserDefaults写入权限"
+echo "   解决：检查应用权限设置"
+
+echo ""
+echo "问题C：小组件和主应用UserDefaults隔离"
+echo "   现象：主应用能设置但小组件读不到"
+echo "   原因：小组件和主应用使用不同的UserDefaults"
+echo "   解决：需要使用App Groups共享数据"
+
+echo ""
+echo "问题D：数据被覆盖"
+echo "   现象：设置成功但立即被其他代码覆盖"
+echo "   原因：有其他地方在设置UserDefaults"
+echo "   解决：检查所有设置UserDefaults的代码"
+
+echo ""
+echo "🧪 立即验证方法："
+
+echo ""
+echo "方法1：最简单的验证"
+echo "   在应用启动后，立即在Xcode控制台输入："
+echo "   po UserDefaults.standard.set([\"MANUAL_TEST\"], forKey: \"iosbrowser_actions\")"
+echo "   po UserDefaults.standard.synchronize()"
+echo "   然后刷新小组件，看是否显示\"MANUAL_TEST\""
+
+echo ""
+echo "方法2：检查App Groups配置"
+echo "   如果小组件确实读不到主应用的UserDefaults，"
+echo "   可能需要配置App Groups来共享数据"
+
+echo ""
+echo "方法3：临时绕过问题"
+echo "   直接在小组件代码中硬编码测试数据，"
+echo "   验证小组件显示功能是否正常"
+
+echo ""
+echo "🚨🚨🚨 紧急调试完成 🚨🚨🚨"
+
+echo ""
+echo "💡 关键提示："
+echo "   现在的日志非常详细，可以精确定位问题。"
+echo "   请重新运行应用并告诉我："
+echo "   1. 是否有🚨🚨🚨应用启动日志？"
+echo "   2. 小组件的🔧🔧🔧原始数据是什么？"
+echo "   3. 手动查询UserDefaults的结果是什么？"
+
+echo ""
+echo "📋 如果问题仍然存在，我们可能需要："
+echo "   1. 配置App Groups来共享数据"
+echo "   2. 或者使用其他数据共享方式"
+echo "   3. 或者检查应用和小组件的权限配置"

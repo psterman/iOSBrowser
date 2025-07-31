@@ -1,0 +1,600 @@
+//
+//  iOSBrowserWidgets.swift
+//  iOSBrowserWidgets
+//
+//  全新小组件系统 v2025-07-31
+//  基于小组件配置tab的四个标签重新构建
+//
+
+import WidgetKit
+import SwiftUI
+
+// MARK: - 小组件包入口
+@main
+struct iOSBrowserWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        SearchEngineWidget()
+        AppSelectionWidget()
+        AIAssistantWidget()
+        QuickActionWidget()
+    }
+}
+
+// MARK: - 数据管理器
+class WidgetDataManager {
+    static let shared = WidgetDataManager()
+
+    private init() {}
+
+    // App Groups UserDefaults - 主要数据源
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.iosbrowser.shared")
+    // 标准UserDefaults - 备用数据源
+    private let standardDefaults = UserDefaults.standard
+
+    // MARK: - 统一数据读取方法
+    private func readStringArray(primaryKey: String, fallbackKeys: [String] = [], defaultValue: [String] = []) -> [String] {
+        print("🔍 [WidgetDataManager] 读取数据: \(primaryKey)")
+        print("🔍 [WidgetDataManager] 备用键: \(fallbackKeys)")
+
+        // 强制同步
+        let stdSync = standardDefaults.synchronize()
+        print("🔍 [WidgetDataManager] UserDefaults同步: \(stdSync)")
+
+        let sharedSync = sharedDefaults?.synchronize() ?? false
+        print("🔍 [WidgetDataManager] App Groups同步: \(sharedSync)")
+
+        // 1. 优先从App Groups读取
+        if let shared = sharedDefaults {
+            print("🔍 [App Groups] UserDefaults对象创建成功")
+            let data = shared.stringArray(forKey: primaryKey) ?? []
+            print("🔍 [App Groups] 读取结果: \(primaryKey) = \(data)")
+            if !data.isEmpty {
+                print("✅ [App Groups] 读取成功: \(primaryKey) = \(data)")
+                return data
+            } else {
+                print("⚠️ [App Groups] 数据为空: \(primaryKey)")
+            }
+        } else {
+            print("❌ [App Groups] UserDefaults对象创建失败")
+        }
+
+        // 2. 从标准UserDefaults读取主键
+        print("🔍 [UserDefaults] 尝试读取主键: \(primaryKey)")
+        let mainData = standardDefaults.stringArray(forKey: primaryKey) ?? []
+        print("🔍 [UserDefaults] 主键读取结果: \(primaryKey) = \(mainData)")
+        if !mainData.isEmpty {
+            print("✅ [UserDefaults] 读取成功: \(primaryKey) = \(mainData)")
+            return mainData
+        } else {
+            print("⚠️ [UserDefaults] 主键数据为空: \(primaryKey)")
+        }
+
+        // 3. 尝试备用键
+        print("🔍 [UserDefaults] 尝试备用键: \(fallbackKeys)")
+        for key in fallbackKeys {
+            print("🔍 [UserDefaults] 尝试备用键: \(key)")
+            let fallbackData = standardDefaults.stringArray(forKey: key) ?? []
+            print("🔍 [UserDefaults] 备用键读取结果: \(key) = \(fallbackData)")
+            if !fallbackData.isEmpty {
+                print("✅ [备用键] 读取成功: \(key) = \(fallbackData)")
+                return fallbackData
+            } else {
+                print("⚠️ [备用键] 数据为空: \(key)")
+            }
+        }
+
+        print("⚠️ [默认值] 所有数据源都为空，使用默认值: \(defaultValue)")
+        return defaultValue
+    }
+
+    // MARK: - 四个标签的数据读取方法
+
+    // 1. 搜索引擎数据 - 清空默认值用于测试
+    func getSearchEngines() -> [String] {
+        let result = readStringArray(
+            primaryKey: "widget_search_engines",
+            fallbackKeys: ["iosbrowser_engines", "widget_search_engines_v2"],
+            defaultValue: []  // 🔥 清空默认值
+        )
+        print("🔍 [getSearchEngines] 最终返回: \(result)")
+        return result
+    }
+
+    // 2. 应用数据 - 清空默认值用于测试
+    func getApps() -> [String] {
+        let result = readStringArray(
+            primaryKey: "widget_apps",
+            fallbackKeys: ["iosbrowser_apps", "widget_apps_v2"],
+            defaultValue: []  // 🔥 清空默认值
+        )
+        print("🔍 [getApps] 最终返回: \(result)")
+        return result
+    }
+
+    // 3. AI助手数据 - 清空默认值用于测试
+    func getAIAssistants() -> [String] {
+        let result = readStringArray(
+            primaryKey: "widget_ai_assistants",
+            fallbackKeys: ["iosbrowser_ai", "widget_ai_assistants_v2"],
+            defaultValue: []  // 🔥 清空默认值
+        )
+        print("🔍 [getAIAssistants] 最终返回: \(result)")
+        return result
+    }
+
+    // 4. 快捷操作数据 - 清空默认值用于测试
+    func getQuickActions() -> [String] {
+        let result = readStringArray(
+            primaryKey: "widget_quick_actions",
+            fallbackKeys: ["iosbrowser_actions", "widget_quick_actions_v2"],
+            defaultValue: []  // 🔥 清空默认值
+        )
+        print("🔍 [getQuickActions] 最终返回: \(result)")
+        return result
+    }
+}
+
+// MARK: - 数据模型
+
+// 搜索引擎条目
+struct SearchEngineEntry: TimelineEntry {
+    let date: Date
+    let engines: [String]
+}
+
+// 应用条目
+struct AppEntry: TimelineEntry {
+    let date: Date
+    let apps: [String]
+}
+
+// AI助手条目
+struct AIEntry: TimelineEntry {
+    let date: Date
+    let assistants: [String]
+}
+
+// 快捷操作条目
+struct QuickActionEntry: TimelineEntry {
+    let date: Date
+    let actions: [String]
+}
+
+// MARK: - Timeline Providers
+
+// 1. 搜索引擎 Timeline Provider
+struct SearchEngineProvider: TimelineProvider {
+    func placeholder(in context: Context) -> SearchEngineEntry {
+        SearchEngineEntry(date: Date(), engines: WidgetDataManager.shared.getSearchEngines())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (SearchEngineEntry) -> ()) {
+        let entry = SearchEngineEntry(date: Date(), engines: WidgetDataManager.shared.getSearchEngines())
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SearchEngineEntry>) -> ()) {
+        print("🔄 [SearchEngineProvider] getTimeline 被调用")
+
+        let engines = WidgetDataManager.shared.getSearchEngines()
+        let entry = SearchEngineEntry(date: Date(), engines: engines)
+
+        print("🔄 [SearchEngineProvider] 获取的搜索引擎: \(engines)")
+
+        // 每5分钟更新一次
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
+    }
+}
+
+// 2. 应用 Timeline Provider
+struct AppProvider: TimelineProvider {
+    func placeholder(in context: Context) -> AppEntry {
+        AppEntry(date: Date(), apps: WidgetDataManager.shared.getApps())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (AppEntry) -> ()) {
+        let entry = AppEntry(date: Date(), apps: WidgetDataManager.shared.getApps())
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<AppEntry>) -> ()) {
+        print("🔄 [AppProvider] getTimeline 被调用")
+
+        let apps = WidgetDataManager.shared.getApps()
+        let entry = AppEntry(date: Date(), apps: apps)
+
+        print("🔄 [AppProvider] 获取的应用: \(apps)")
+
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
+    }
+}
+
+// 3. AI助手 Timeline Provider
+struct AIProvider: TimelineProvider {
+    func placeholder(in context: Context) -> AIEntry {
+        AIEntry(date: Date(), assistants: WidgetDataManager.shared.getAIAssistants())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (AIEntry) -> ()) {
+        let entry = AIEntry(date: Date(), assistants: WidgetDataManager.shared.getAIAssistants())
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<AIEntry>) -> ()) {
+        print("🔄 [AIProvider] getTimeline 被调用")
+
+        let assistants = WidgetDataManager.shared.getAIAssistants()
+        let entry = AIEntry(date: Date(), assistants: assistants)
+
+        print("🔄 [AIProvider] 获取的AI助手: \(assistants)")
+
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
+    }
+}
+
+// 4. 快捷操作 Timeline Provider
+struct QuickActionProvider: TimelineProvider {
+    func placeholder(in context: Context) -> QuickActionEntry {
+        QuickActionEntry(date: Date(), actions: WidgetDataManager.shared.getQuickActions())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (QuickActionEntry) -> ()) {
+        let entry = QuickActionEntry(date: Date(), actions: WidgetDataManager.shared.getQuickActions())
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<QuickActionEntry>) -> ()) {
+        print("🔄 [QuickActionProvider] getTimeline 被调用")
+
+        let actions = WidgetDataManager.shared.getQuickActions()
+        let entry = QuickActionEntry(date: Date(), actions: actions)
+
+        print("🔄 [QuickActionProvider] 获取的快捷操作: \(actions)")
+
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
+    }
+}
+
+// MARK: - 工具函数
+
+// 获取搜索引擎信息
+func getSearchEngineInfo(_ engineId: String) -> (name: String, color: Color, icon: String) {
+    switch engineId {
+    case "baidu": return ("百度", .red, "magnifyingglass")
+    case "google": return ("Google", .blue, "globe")
+    case "bing": return ("Bing", .blue, "magnifyingglass.circle")
+    case "yahoo": return ("Yahoo", .purple, "y.circle")
+    case "duckduckgo": return ("DuckDuckGo", .orange, "shield")
+    case "yandex": return ("Yandex", .red, "y.square")
+    case "sogou": return ("搜狗", .blue, "s.circle")
+    default: return (engineId, .gray, "questionmark.circle")
+    }
+}
+
+// 获取应用信息
+func getAppInfo(_ appId: String) -> (name: String, color: Color, icon: String) {
+    switch appId {
+    case "taobao": return ("淘宝", .orange, "bag")
+    case "zhihu": return ("知乎", .blue, "questionmark.circle")
+    case "douyin": return ("抖音", .black, "music.note")
+    case "wechat": return ("微信", .green, "message")
+    case "alipay": return ("支付宝", .blue, "creditcard")
+    case "meituan": return ("美团", .yellow, "fork.knife")
+    case "didi": return ("滴滴", .orange, "car")
+    default: return (appId, .gray, "app")
+    }
+}
+
+// 获取AI助手信息
+func getAIInfo(_ aiId: String) -> (name: String, color: Color, icon: String) {
+    switch aiId {
+    case "deepseek": return ("DeepSeek", .blue, "brain")
+    case "qwen": return ("通义千问", .purple, "bubble.left")
+    case "chatgpt": return ("ChatGPT", .green, "message.circle")
+    case "claude": return ("Claude", .orange, "person.circle")
+    case "gemini": return ("Gemini", .blue, "star.circle")
+    case "copilot": return ("Copilot", .indigo, "airplane.circle")
+    default: return (aiId, .gray, "questionmark.circle")
+    }
+}
+
+// 获取快捷操作信息
+func getActionInfo(_ actionId: String) -> (name: String, color: Color, icon: String) {
+    switch actionId {
+    case "search": return ("搜索", .blue, "magnifyingglass")
+    case "bookmark": return ("书签", .orange, "bookmark")
+    case "translate": return ("翻译", .green, "textformat")
+    case "calculator": return ("计算器", .red, "plus.forwardslash.minus")
+    case "weather": return ("天气", .cyan, "cloud.sun")
+    case "timer": return ("计时器", .purple, "timer")
+    default: return (actionId, .gray, "gear")
+    }
+}
+
+// MARK: - 小组件视图
+
+// 1. 搜索引擎小组件视图
+struct SearchEngineWidgetView: View {
+    let entry: SearchEngineEntry
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.blue)
+                Text("搜索引擎")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+
+            if entry.engines.isEmpty {
+                // 显示无数据状态
+                VStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 24))
+                    Text("无数据")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("请在主应用中配置")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 6) {
+                    ForEach(Array(entry.engines.prefix(4).enumerated()), id: \.offset) { index, engineId in
+                        let info = getSearchEngineInfo(engineId)
+
+                        VStack(spacing: 2) {
+                            Image(systemName: info.icon)
+                                .foregroundColor(info.color)
+                                .font(.system(size: 16))
+                            Text(info.name)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(6)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+
+// 2. 应用小组件视图
+struct AppWidgetView: View {
+    let entry: AppEntry
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "app")
+                    .foregroundColor(.green)
+                Text("应用")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+
+            if entry.apps.isEmpty {
+                // 显示无数据状态
+                VStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 24))
+                    Text("无数据")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("请在主应用中配置")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 6) {
+                    ForEach(Array(entry.apps.prefix(4).enumerated()), id: \.offset) { index, appId in
+                        let info = getAppInfo(appId)
+
+                        VStack(spacing: 2) {
+                            Image(systemName: info.icon)
+                                .foregroundColor(info.color)
+                                .font(.system(size: 16))
+                            Text(info.name)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(6)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+
+// 3. AI助手小组件视图
+struct AIWidgetView: View {
+    let entry: AIEntry
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "brain")
+                    .foregroundColor(.purple)
+                Text("AI助手")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+
+            if entry.assistants.isEmpty {
+                // 显示无数据状态
+                VStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 24))
+                    Text("无数据")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("请在主应用中配置")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 6) {
+                    ForEach(Array(entry.assistants.prefix(4).enumerated()), id: \.offset) { index, aiId in
+                        let info = getAIInfo(aiId)
+
+                        VStack(spacing: 2) {
+                            Image(systemName: info.icon)
+                                .foregroundColor(info.color)
+                                .font(.system(size: 16))
+                            Text(info.name)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(6)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+
+// 4. 快捷操作小组件视图
+struct QuickActionWidgetView: View {
+    let entry: QuickActionEntry
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "bolt")
+                    .foregroundColor(.orange)
+                Text("快捷操作")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Spacer()
+            }
+
+            if entry.actions.isEmpty {
+                // 显示无数据状态
+                VStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 24))
+                    Text("无数据")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("请在主应用中配置")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 6) {
+                    ForEach(Array(entry.actions.prefix(4).enumerated()), id: \.offset) { index, actionId in
+                        let info = getActionInfo(actionId)
+
+                        VStack(spacing: 2) {
+                            Image(systemName: info.icon)
+                                .foregroundColor(info.color)
+                                .font(.system(size: 16))
+                            Text(info.name)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(6)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+
+// MARK: - 小组件配置
+
+// 1. 搜索引擎小组件
+struct SearchEngineWidget: Widget {
+    let kind: String = "SearchEngineWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: SearchEngineProvider()) { entry in
+            SearchEngineWidgetView(entry: entry)
+        }
+        .configurationDisplayName("搜索引擎")
+        .description("显示您配置的搜索引擎")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+// 2. 应用小组件
+struct AppSelectionWidget: Widget {
+    let kind: String = "AppSelectionWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: AppProvider()) { entry in
+            AppWidgetView(entry: entry)
+        }
+        .configurationDisplayName("应用")
+        .description("显示您配置的应用")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+// 3. AI助手小组件
+struct AIAssistantWidget: Widget {
+    let kind: String = "AIAssistantWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: AIProvider()) { entry in
+            AIWidgetView(entry: entry)
+        }
+        .configurationDisplayName("AI助手")
+        .description("显示您配置的AI助手")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+// 4. 快捷操作小组件
+struct QuickActionWidget: Widget {
+    let kind: String = "QuickActionWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: QuickActionProvider()) { entry in
+            QuickActionWidgetView(entry: entry)
+        }
+        .configurationDisplayName("快捷操作")
+        .description("显示您配置的快捷操作")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
