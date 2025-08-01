@@ -36,6 +36,32 @@
 		<string>iosamap</string>
 		<string>baidumap</string>
 		<string>qqmap</string>
+		<string>sosomap</string>
+		<string>quark</string>
+		<string>ucbrowser</string>
+		<string>douban</string>
+		<string>xhsdiscover</string>
+		<string>youtube</string>
+		<string>youku</string>
+		<string>fleamarket</string>
+		<string>dianping</string>
+		<string>cmbmobilebank</string>
+		<string>antfortune</string>
+		<string>cn.12306</string>
+		<string>ctrip</string>
+		<string>qunar</string>
+		<string>hellobike</string>
+		<string>bosszhipin</string>
+		<string>lagou</string>
+		<string>liepin</string>
+		<string>51job</string>
+		<string>yddict</string>
+		<string>bdc</string>
+		<string>zuoyebang</string>
+		<string>xiaoyuan</string>
+		<string>snssdk32</string>
+		<string>qqnews</string>
+		<string>newsapp</string>
 	</array>
 </dict>
 </plist>

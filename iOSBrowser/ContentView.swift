@@ -222,8 +222,8 @@ class DataSyncCenter: ObservableObject {
             UnifiedAppData(id: "quark", name: "夸克", icon: "globe.circle.fill", color: .blue, category: "浏览器"),
             UnifiedAppData(id: "uc", name: "UC浏览器", icon: "safari.fill", color: .orange, category: "浏览器"),
 
-            // 其他
-            UnifiedAppData(id: "douban", name: "豆瓣", icon: "book.fill", color: .green, category: "其他")
+            // 生活服务中的豆瓣
+            UnifiedAppData(id: "douban", name: "豆瓣", icon: "book.fill", color: .green, category: "生活")
         ]
 
         print("📱 从搜索tab加载应用数据: \(allApps.count) 个应用")
@@ -3031,141 +3031,369 @@ struct WeChatTabItem: View {
 }
 
 // 临时的SearchView定义，直到文件被正确添加到项目中
+// MARK: - 分类配置结构
+struct CategoryConfig: Identifiable, Codable {
+    let id = UUID()
+    var name: String
+    var color: Color
+    var icon: String
+    var order: Int
+    var isCustom: Bool = false
+
+    // 颜色编码支持
+    enum CodingKeys: String, CodingKey {
+        case name, icon, order, isCustom
+        case colorRed, colorGreen, colorBlue, colorAlpha
+    }
+
+    init(name: String, color: Color, icon: String, order: Int, isCustom: Bool = false) {
+        self.name = name
+        self.color = color
+        self.icon = icon
+        self.order = order
+        self.isCustom = isCustom
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        icon = try container.decode(String.self, forKey: .icon)
+        order = try container.decode(Int.self, forKey: .order)
+        isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? false
+
+        let red = try container.decode(Double.self, forKey: .colorRed)
+        let green = try container.decode(Double.self, forKey: .colorGreen)
+        let blue = try container.decode(Double.self, forKey: .colorBlue)
+        let alpha = try container.decode(Double.self, forKey: .colorAlpha)
+        color = Color(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(icon, forKey: .icon)
+        try container.encode(order, forKey: .order)
+        try container.encode(isCustom, forKey: .isCustom)
+
+        // 正确的颜色编码 - 提取实际的RGB值
+        let uiColor = UIColor(color)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+
+        try container.encode(Double(red), forKey: .colorRed)
+        try container.encode(Double(green), forKey: .colorGreen)
+        try container.encode(Double(blue), forKey: .colorBlue)
+        try container.encode(Double(alpha), forKey: .colorAlpha)
+    }
+}
+
 struct SearchView: View {
     @EnvironmentObject var deepLinkHandler: DeepLinkHandler
     @State private var searchText = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var selectedCategory = "全部"
+    @State private var categoryConfigs: [CategoryConfig] = []
+    @State private var customApps: [String] = [] // 自定义分类中的应用ID
+    @State private var showingCategoryEditor = false
+    @State private var showingCategoryDrawer = true // 抽屉显示状态
+    @State private var showingCustomAlert = false // 自定义分类提示
+    @State private var customAlertMessage = "" // 自定义分类消息
 
-    private let categories = ["全部", "购物", "社交", "视频", "音乐", "生活", "地图", "浏览器", "其他"]
+    // 默认分类配置 - 绿色简约风格
+    private var defaultCategories: [CategoryConfig] {
+        [
+            CategoryConfig(name: "自定义", color: Color.green, icon: "star.fill", order: 0, isCustom: true),
+            CategoryConfig(name: "全部", color: Color.primary, icon: "square.grid.2x2.fill", order: 1),
+            CategoryConfig(name: "购物", color: Color.green, icon: "bag.fill", order: 2),
+            CategoryConfig(name: "社交", color: Color(red: 0.2, green: 0.7, blue: 0.3), icon: "bubble.left.and.bubble.right.fill", order: 3),
+            CategoryConfig(name: "视频", color: Color.green, icon: "play.rectangle.fill", order: 4),
+            CategoryConfig(name: "音乐", color: Color(red: 0.3, green: 0.8, blue: 0.4), icon: "music.note", order: 5),
+            CategoryConfig(name: "生活", color: Color.green, icon: "house.fill", order: 6),
+            CategoryConfig(name: "地图", color: Color(red: 0.2, green: 0.7, blue: 0.3), icon: "map.fill", order: 7),
+            CategoryConfig(name: "浏览器", color: Color.green, icon: "globe", order: 8),
+            CategoryConfig(name: "金融", color: Color(red: 0.3, green: 0.8, blue: 0.4), icon: "creditcard.fill", order: 9),
+            CategoryConfig(name: "出行", color: Color.green, icon: "car.fill", order: 10),
+            CategoryConfig(name: "招聘", color: Color(red: 0.2, green: 0.7, blue: 0.3), icon: "briefcase.fill", order: 11),
+            CategoryConfig(name: "教育", color: Color.green, icon: "book.fill", order: 12),
+            CategoryConfig(name: "新闻", color: Color(red: 0.3, green: 0.8, blue: 0.4), icon: "newspaper.fill", order: 13)
+        ]
+    }
 
     // 应用数据 - 使用更贴近原App的图标和品牌色
     private let apps = [
         // 购物类
-        AppInfo(name: "淘宝", icon: "T", systemIcon: "bag.circle.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "taobao://s.taobao.com/search?q=", bundleId: "com.taobao.taobao4iphone", category: "购物"),
-        AppInfo(name: "天猫", icon: "天", systemIcon: "bag.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "tmall://search?q=", bundleId: "com.tmall.wireless", category: "购物"),
-        AppInfo(name: "拼多多", icon: "P", systemIcon: "cart.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "pinduoduo://search?keyword=", bundleId: "com.xunmeng.pinduoduo", category: "购物"),
-        AppInfo(name: "京东", icon: "京", systemIcon: "cube.box.fill", color: Color(red: 0.8, green: 0.0, blue: 0.0), urlScheme: "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"search\",\"keyword\":\"", bundleId: "com.360buy.jdmobile", category: "购物"),
-        AppInfo(name: "闲鱼", icon: "闲", systemIcon: "fish.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "fleamarket://search?q=", bundleId: "com.taobao.fleamarket", category: "购物"),
+        AppInfo(name: "淘宝", icon: "T", systemIcon: "bag.circle.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "taobao://s.taobao.com/search?q=", bundleId: "com.taobao.taobao4iphone", category: "购物", appStoreId: "387682726"),
+        AppInfo(name: "天猫", icon: "天", systemIcon: "bag.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "tmall://search?q=", bundleId: "com.tmall.wireless", category: "购物", appStoreId: "518966501"),
+        AppInfo(name: "拼多多", icon: "P", systemIcon: "cart.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "pinduoduo://search?keyword=", bundleId: "com.xunmeng.pinduoduo", category: "购物", appStoreId: "1044283059"),
+        AppInfo(name: "京东", icon: "京", systemIcon: "cube.box.fill", color: Color(red: 0.8, green: 0.0, blue: 0.0), urlScheme: "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"search\",\"keyword\":\"", bundleId: "com.360buy.jdmobile", category: "购物", appStoreId: "414245413"),
+        AppInfo(name: "闲鱼", icon: "闲", systemIcon: "fish.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "fleamarket://search?q=", bundleId: "com.taobao.fleamarket", category: "购物", appStoreId: "510909506"),
 
         // 社交媒体
-        AppInfo(name: "知乎", icon: "知", systemIcon: "bubble.left.circle.fill", color: Color(red: 0.0, green: 0.5, blue: 1.0), urlScheme: "zhihu://search?q=", bundleId: "com.zhihu.ios", category: "社交"),
-        AppInfo(name: "微博", icon: "微", systemIcon: "at.circle.fill", color: Color(red: 1.0, green: 0.3, blue: 0.3), urlScheme: "sinaweibo://search?q=", bundleId: "com.sina.weibo", category: "社交"),
-        AppInfo(name: "小红书", icon: "小", systemIcon: "heart.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.4), urlScheme: "xhsdiscover://search?keyword=", bundleId: "com.xingin.xhs", category: "社交"),
+        AppInfo(name: "知乎", icon: "知", systemIcon: "bubble.left.circle.fill", color: Color(red: 0.0, green: 0.5, blue: 1.0), urlScheme: "zhihu://search?q=", bundleId: "com.zhihu.ios", category: "社交", appStoreId: "432274380"),
+        AppInfo(name: "微博", icon: "微", systemIcon: "at.circle.fill", color: Color(red: 1.0, green: 0.3, blue: 0.3), urlScheme: "sinaweibo://search?q=", bundleId: "com.sina.weibo", category: "社交", appStoreId: "350962117"),
+        AppInfo(name: "小红书", icon: "小", systemIcon: "heart.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.4), urlScheme: "xhsdiscover://search?keyword=", bundleId: "com.xingin.xhs", category: "社交", appStoreId: "741292507"),
 
         // 视频娱乐
-        AppInfo(name: "抖音", icon: "抖", systemIcon: "music.note.tv.fill", color: Color(red: 0.0, green: 0.0, blue: 0.0), urlScheme: "snssdk1128://search?keyword=", bundleId: "com.ss.iphone.ugc.Aweme", category: "视频"),
-        AppInfo(name: "快手", icon: "快", systemIcon: "video.circle.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "kwai://search?keyword=", bundleId: "com.kuaishou.gif", category: "视频"),
-        AppInfo(name: "bilibili", icon: "B", systemIcon: "tv.circle.fill", color: Color(red: 1.0, green: 0.4, blue: 0.7), urlScheme: "bilibili://search?keyword=", bundleId: "tv.danmaku.bili", category: "视频"),
-        AppInfo(name: "YouTube", icon: "Y", systemIcon: "play.tv.fill", color: Color(red: 1.0, green: 0.0, blue: 0.0), urlScheme: "youtube://results?search_query=", bundleId: "com.google.ios.youtube", category: "视频"),
-        AppInfo(name: "优酷", icon: "优", systemIcon: "play.rectangle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "youku://search?keyword=", bundleId: "com.youku.YouKu", category: "视频"),
-        AppInfo(name: "爱奇艺", icon: "爱", systemIcon: "tv.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "qiyi-iphone://search?key=", bundleId: "com.qiyi.iphone", category: "视频"),
+        AppInfo(name: "抖音", icon: "抖", systemIcon: "music.note.tv.fill", color: Color(red: 0.0, green: 0.0, blue: 0.0), urlScheme: "snssdk1128://search?keyword=", bundleId: "com.ss.iphone.ugc.Aweme", category: "视频", appStoreId: "1142110895"),
+        AppInfo(name: "快手", icon: "快", systemIcon: "video.circle.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "kwai://search?keyword=", bundleId: "com.kuaishou.gif", category: "视频", appStoreId: "440948110"),
+        AppInfo(name: "bilibili", icon: "B", systemIcon: "tv.circle.fill", color: Color(red: 0.2, green: 0.7, blue: 0.3), urlScheme: "bilibili://search?keyword=", bundleId: "tv.danmaku.bili", category: "视频", appStoreId: "736536022"),
+        AppInfo(name: "YouTube", icon: "Y", systemIcon: "play.tv.fill", color: Color(red: 1.0, green: 0.0, blue: 0.0), urlScheme: "youtube://results?search_query=", bundleId: "com.google.ios.youtube", category: "视频", appStoreId: "544007664"),
+        AppInfo(name: "优酷", icon: "优", systemIcon: "play.rectangle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "youku://search?keyword=", bundleId: "com.youku.YouKu", category: "视频", appStoreId: "336141475"),
+        AppInfo(name: "爱奇艺", icon: "爱", systemIcon: "tv.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "qiyi-iphone://search?key=", bundleId: "com.qiyi.iphone", category: "视频", appStoreId: "393765873"),
 
         // 音乐
-        AppInfo(name: "QQ音乐", icon: "Q", systemIcon: "music.note.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.2), urlScheme: "qqmusic://search?key=", bundleId: "com.tencent.QQMusic", category: "音乐"),
-        AppInfo(name: "网易云音乐", icon: "网", systemIcon: "music.note.list", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "orpheus://search?keyword=", bundleId: "com.netease.cloudmusic", category: "音乐"),
+        AppInfo(name: "QQ音乐", icon: "Q", systemIcon: "music.note.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.2), urlScheme: "qqmusic://search?key=", bundleId: "com.tencent.QQMusic", category: "音乐", appStoreId: "414603431"),
+        AppInfo(name: "网易云音乐", icon: "网", systemIcon: "music.note.list", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "orpheus://search?keyword=", bundleId: "com.netease.cloudmusic", category: "音乐", appStoreId: "590338362"),
 
         // 生活服务
-        AppInfo(name: "美团", icon: "美", systemIcon: "takeoutbag.and.cup.and.straw.fill", color: Color(red: 1.0, green: 0.8, blue: 0.0), urlScheme: "imeituan://www.meituan.com/search?q=", bundleId: "com.meituan.imeituan", category: "生活"),
-        AppInfo(name: "饿了么", icon: "饿", systemIcon: "fork.knife.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "eleme://search?keyword=", bundleId: "me.ele.ios.eleme", category: "生活"),
-        AppInfo(name: "大众点评", icon: "大", systemIcon: "star.circle.fill", color: Color(red: 1.0, green: 0.6, blue: 0.0), urlScheme: "dianping://search?keyword=", bundleId: "com.dianping.dpscope", category: "生活"),
+        AppInfo(name: "美团", icon: "美", systemIcon: "takeoutbag.and.cup.and.straw.fill", color: Color(red: 1.0, green: 0.8, blue: 0.0), urlScheme: "imeituan://www.meituan.com/search?q=", bundleId: "com.meituan.imeituan", category: "生活", appStoreId: "423084029"),
+        AppInfo(name: "饿了么", icon: "饿", systemIcon: "fork.knife.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "eleme://search?keyword=", bundleId: "me.ele.ios.eleme", category: "生活", appStoreId: "507161324"),
+        AppInfo(name: "大众点评", icon: "大", systemIcon: "star.circle.fill", color: Color(red: 1.0, green: 0.6, blue: 0.0), urlScheme: "dianping://search?keyword=", bundleId: "com.dianping.dpscope", category: "生活", appStoreId: "351091731"),
+        AppInfo(name: "豆瓣", icon: "豆", systemIcon: "book.circle.fill", color: Color(red: 0.0, green: 0.7, blue: 0.3), urlScheme: "douban://search?q=", bundleId: "com.douban.frodo", category: "生活", appStoreId: "907002334"),
 
         // 地图导航
-        AppInfo(name: "高德地图", icon: "高", systemIcon: "map.circle.fill", color: Color(red: 0.0, green: 0.7, blue: 1.0), urlScheme: "iosamap://search?keywords=", bundleId: "com.autonavi.minimap", category: "地图"),
-        AppInfo(name: "腾讯地图", icon: "腾", systemIcon: "location.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "sosomap://search?keyword=", bundleId: "com.tencent.map", category: "地图"),
+        AppInfo(name: "高德地图", icon: "高", systemIcon: "map.circle.fill", color: Color(red: 0.0, green: 0.7, blue: 1.0), urlScheme: "iosamap://search?keywords=", bundleId: "com.autonavi.minimap", category: "地图", appStoreId: "461703208"),
+        AppInfo(name: "腾讯地图", icon: "腾", systemIcon: "location.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "sosomap://search?keyword=", bundleId: "com.tencent.map", category: "地图", appStoreId: "481623196"),
 
         // 浏览器
-        AppInfo(name: "夸克", icon: "夸", systemIcon: "globe.circle.fill", color: Color(red: 0.4, green: 0.6, blue: 1.0), urlScheme: "quark://search?q=", bundleId: "com.quark.browser", category: "浏览器"),
-        AppInfo(name: "UC浏览器", icon: "UC", systemIcon: "safari.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "ucbrowser://search?keyword=", bundleId: "com.uc.iphone", category: "浏览器"),
+        AppInfo(name: "夸克", icon: "夸", systemIcon: "globe.circle.fill", color: Color(red: 0.4, green: 0.6, blue: 1.0), urlScheme: "quark://search?q=", bundleId: "com.quark.browser", category: "浏览器", appStoreId: "1160172628"),
+        AppInfo(name: "UC浏览器", icon: "UC", systemIcon: "safari.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "ucbrowser://search?keyword=", bundleId: "com.uc.iphone", category: "浏览器", appStoreId: "586871187"),
 
-        // 其他
-        AppInfo(name: "豆瓣", icon: "豆", systemIcon: "book.circle.fill", color: Color(red: 0.0, green: 0.7, blue: 0.3), urlScheme: "douban://search?q=", bundleId: "com.douban.frodo", category: "其他")
+        // 金融支付
+        AppInfo(name: "支付宝", icon: "支", systemIcon: "creditcard.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "alipay://platformapi/startapp?appId=20000067&query=", bundleId: "com.alipay.iphoneclient", category: "金融", appStoreId: "333206289"),
+        AppInfo(name: "微信支付", icon: "微", systemIcon: "dollarsign.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.2), urlScheme: "weixin://dl/business/?ticket=", bundleId: "com.tencent.xin", category: "金融", appStoreId: "414478124"),
+        AppInfo(name: "招商银行", icon: "招", systemIcon: "building.columns.circle.fill", color: Color(red: 0.8, green: 0.0, blue: 0.0), urlScheme: "cmbmobilebank://search?keyword=", bundleId: "com.cmbchina.cmbphone", category: "金融", appStoreId: "392966996"),
+        AppInfo(name: "蚂蚁财富", icon: "蚂", systemIcon: "chart.line.uptrend.xyaxis.circle.fill", color: Color(red: 0.0, green: 0.5, blue: 1.0), urlScheme: "antfortune://search?keyword=", bundleId: "com.alipay.antfortune", category: "金融", appStoreId: "1015961470"),
+
+        // 出行交通
+        AppInfo(name: "滴滴出行", icon: "滴", systemIcon: "car.circle.fill", color: Color(red: 1.0, green: 0.6, blue: 0.0), urlScheme: "diditaxi://search?keyword=", bundleId: "com.xiaojukeji.didi", category: "出行", appStoreId: "554499054"),
+        AppInfo(name: "12306", icon: "12", systemIcon: "train.side.front.car", color: Color(red: 0.0, green: 0.4, blue: 0.8), urlScheme: "cn.12306://search?keyword=", bundleId: "com.MCS.MobileTicket", category: "出行", appStoreId: "564818797"),
+        AppInfo(name: "携程旅行", icon: "携", systemIcon: "airplane.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "ctrip://search?keyword=", bundleId: "com.ctrip.wireless", category: "出行", appStoreId: "379395415"),
+        AppInfo(name: "去哪儿", icon: "去", systemIcon: "location.north.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "qunar://search?keyword=", bundleId: "com.Qunar.travel", category: "出行", appStoreId: "395096736"),
+        AppInfo(name: "哈啰出行", icon: "哈", systemIcon: "bicycle.circle.fill", color: Color(red: 0.0, green: 0.7, blue: 1.0), urlScheme: "hellobike://search?keyword=", bundleId: "com.jingyao.easybike", category: "出行", appStoreId: "1189319138"),
+
+        // 求职招聘
+        AppInfo(name: "BOSS直聘", icon: "B", systemIcon: "person.crop.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "bosszhipin://search?keyword=", bundleId: "com.kanzhun.boss", category: "招聘", appStoreId: "1032153068"),
+        AppInfo(name: "拉勾网", icon: "拉", systemIcon: "briefcase.circle.fill", color: Color(red: 0.0, green: 0.7, blue: 0.3), urlScheme: "lagou://search?keyword=", bundleId: "com.lagou.ios", category: "招聘", appStoreId: "653057711"),
+        AppInfo(name: "猎聘", icon: "猎", systemIcon: "target", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "liepin://search?keyword=", bundleId: "com.liepin.swift", category: "招聘", appStoreId: "1067859622"),
+        AppInfo(name: "前程无忧", icon: "前", systemIcon: "person.badge.plus.fill", color: Color(red: 0.0, green: 0.5, blue: 1.0), urlScheme: "51job://search?keyword=", bundleId: "com.51job.iphone.client", category: "招聘", appStoreId: "400651660"),
+
+        // 教育学习
+        AppInfo(name: "有道词典", icon: "有", systemIcon: "book.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "yddict://search?keyword=", bundleId: "com.youdao.dict", category: "教育", appStoreId: "353115739"),
+        AppInfo(name: "百词斩", icon: "百", systemIcon: "textbook.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "bdc://search?keyword=", bundleId: "com.jiongji.anddict", category: "教育", appStoreId: "847068615"),
+        AppInfo(name: "作业帮", icon: "作", systemIcon: "pencil.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "zuoyebang://search?keyword=", bundleId: "com.baidu.homework", category: "教育", appStoreId: "1001508196"),
+        AppInfo(name: "小猿搜题", icon: "猿", systemIcon: "questionmark.circle.fill", color: Color(red: 1.0, green: 0.6, blue: 0.0), urlScheme: "xiaoyuan://search?keyword=", bundleId: "com.fenbi.iphone.ape", category: "教育", appStoreId: "1034006541"),
+
+        // 新闻资讯
+        AppInfo(name: "今日头条", icon: "今", systemIcon: "newspaper.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "snssdk32://search?keyword=", bundleId: "com.ss.iphone.article.News", category: "新闻", appStoreId: "529092160"),
+        AppInfo(name: "腾讯新闻", icon: "腾", systemIcon: "doc.text.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "qqnews://search?keyword=", bundleId: "com.tencent.news", category: "新闻", appStoreId: "399363894"),
+        AppInfo(name: "网易新闻", icon: "网", systemIcon: "globe.asia.australia.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "newsapp://search?keyword=", bundleId: "com.netease.news", category: "新闻", appStoreId: "425349261")
     ]
 
     var filteredApps: [AppInfo] {
         if selectedCategory == "全部" {
             return apps
+        } else if selectedCategory == "自定义" {
+            return apps.filter { app in
+                customApps.contains(app.name)
+            }
         } else {
             return apps.filter { $0.category == selectedCategory }
         }
     }
 
+    // 获取排序后的分类
+    var sortedCategories: [CategoryConfig] {
+        categoryConfigs.sorted { $0.order < $1.order }
+    }
+
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // 搜索栏
-                VStack(spacing: 16) {
+            HStack(spacing: 0) {
+                // 左侧分类抽屉
+                if showingCategoryDrawer {
+                    GeometryReader { geometry in
+                        VStack(alignment: .leading, spacing: 0) {
+                            // 分类标题
+                            HStack {
+                                Text("分类")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Color(red: 0.2, green: 0.7, blue: 0.3))
+
+                                Spacer()
+
+                                Button(action: {
+                                    showingCategoryEditor = true
+                                }) {
+                                    Image(systemName: "slider.horizontal.3")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.green)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+
+                            Divider()
+                                .background(Color.green.opacity(0.3))
+
+                            // 分类列表
+                            ScrollView {
+                                LazyVStack(spacing: 1) {
+                                    ForEach(sortedCategories) { category in
+                                        CategoryButton(
+                                            category: category,
+                                            isSelected: selectedCategory == category.name,
+                                            customAppsCount: category.name == "自定义" ? customApps.count : nil,
+                                            screenHeight: geometry.size.height
+                                        ) {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                selectedCategory = category.name
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                    .frame(width: 110)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.green.opacity(0.05),
+                                Color.green.opacity(0.1)
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .transition(.move(edge: .leading))
+
+                    Divider()
+                }
+
+                // 右侧内容区域
+                VStack(spacing: 0) {
+                    // 顶部工具栏
                     HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 16))
-
-                        TextField("输入搜索关键词", text: $searchText)
-                            .textFieldStyle(PlainTextFieldStyle())
-
-                        if !searchText.isEmpty {
-                            Button(action: {
-                                searchText = ""
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.gray)
-                                    .font(.system(size: 16))
+                        // 抽屉切换按钮
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingCategoryDrawer.toggle()
                             }
+                        }) {
+                            Image(systemName: showingCategoryDrawer ? "sidebar.left" : "sidebar.right")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.blue)
                         }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(10)
-                    .padding(.horizontal, 16)
 
-                    Text("选择应用进行搜索")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                }
-                .padding(.top, 16)
-                .padding(.bottom, 16)
+                        Spacer()
 
-                // 分类选择器
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(categories, id: \.self) { category in
-                            Button(action: {
-                                selectedCategory = category
-                            }) {
-                                Text(category)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(selectedCategory == category ? Color.blue : Color(.systemGray5))
-                                    .foregroundColor(selectedCategory == category ? .white : .primary)
-                                    .cornerRadius(20)
+                        // 当前分类显示
+                        if !showingCategoryDrawer {
+                            HStack(spacing: 6) {
+                                if let currentCategory = sortedCategories.first(where: { $0.name == selectedCategory }) {
+                                    Image(systemName: currentCategory.icon)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(currentCategory.color)
+
+                                    Text(currentCategory.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.primary)
+                                }
                             }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-                .padding(.bottom, 16)
-
-                // 应用网格
-                ScrollView {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 16) {
-                        ForEach(filteredApps, id: \.name) { app in
-                            AppButton(app: app, searchText: searchText) {
-                                searchInApp(app: app)
-                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(6)
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
+
+                    // 搜索栏
+                    VStack(spacing: 12) {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 16))
+
+                            TextField("输入搜索关键词", text: $searchText)
+                                .textFieldStyle(PlainTextFieldStyle())
+
+                            if !searchText.isEmpty {
+                                Button(action: {
+                                    searchText = ""
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray)
+                                        .font(.system(size: 16))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+
+                        if selectedCategory == "自定义" && customApps.isEmpty {
+                            Text("长按应用图标添加到自定义分类")
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("选择应用进行搜索")
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+
+                    // 应用网格
+                    ScrollView {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+                            ForEach(filteredApps, id: \.name) { app in
+                                AppButton(app: app, searchText: searchText) {
+                                    searchInApp(app: app)
+                                }
+                                .onLongPressGesture {
+                                    handleLongPress(app: app)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    }
                 }
             }
             .navigationTitle("应用搜索")
+            .navigationBarTitleDisplayMode(.inline)
             .alert("提示", isPresented: $showingAlert) {
                 Button("确定", role: .cancel) { }
             } message: {
                 Text(alertMessage)
+            }
+            .alert("自定义分类", isPresented: $showingCustomAlert) {
+                Button("确定", role: .cancel) { }
+            } message: {
+                Text(customAlertMessage)
+            }
+            .sheet(isPresented: $showingCategoryEditor) {
+                CategoryEditorView(
+                    categories: $categoryConfigs,
+                    customApps: $customApps,
+                    allApps: apps
+                )
+            }
+            .onAppear {
+                // 首次启动时重置为绿色主题
+                resetToGreenTheme()
+                loadCategoryConfigs()
             }
             .onChange(of: deepLinkHandler.searchQuery) { query in
                 if !query.isEmpty {
@@ -3180,6 +3408,42 @@ struct SearchView: View {
         }
     }
 
+    // MARK: - 分类配置管理
+    private func loadCategoryConfigs() {
+        // 检查是否需要重置为绿色主题
+        let shouldResetToGreen = UserDefaults.standard.bool(forKey: "ShouldResetToGreenTheme")
+
+        if shouldResetToGreen || !UserDefaults.standard.bool(forKey: "CategoryConfigsInitialized") {
+            // 重置为绿色主题或首次初始化
+            categoryConfigs = defaultCategories
+            saveCategoryConfigs()
+            UserDefaults.standard.set(true, forKey: "CategoryConfigsInitialized")
+            UserDefaults.standard.set(false, forKey: "ShouldResetToGreenTheme")
+        } else if let data = UserDefaults.standard.data(forKey: "CategoryConfigs"),
+                  let configs = try? JSONDecoder().decode([CategoryConfig].self, from: data) {
+            categoryConfigs = configs
+        } else {
+            categoryConfigs = defaultCategories
+            saveCategoryConfigs()
+        }
+
+        // 加载自定义应用列表
+        customApps = UserDefaults.standard.stringArray(forKey: "CustomApps") ?? []
+    }
+
+    private func saveCategoryConfigs() {
+        if let data = try? JSONEncoder().encode(categoryConfigs) {
+            UserDefaults.standard.set(data, forKey: "CategoryConfigs")
+        }
+        UserDefaults.standard.set(customApps, forKey: "CustomApps")
+    }
+
+    // 重置为绿色主题
+    private func resetToGreenTheme() {
+        UserDefaults.standard.set(true, forKey: "ShouldResetToGreenTheme")
+        loadCategoryConfigs()
+    }
+
     private func searchInApp(app: AppInfo) {
         guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             alertMessage = "请输入搜索关键词"
@@ -3191,8 +3455,98 @@ struct SearchView: View {
         let urlString = app.urlScheme + keyword
 
         if let url = URL(string: urlString) {
-            UIApplication.shared.open(url)
+            // 检查应用是否已安装
+            if UIApplication.shared.canOpenURL(url) {
+                // 应用已安装，直接打开搜索
+                UIApplication.shared.open(url) { success in
+                    if !success {
+                        DispatchQueue.main.async {
+                            self.alertMessage = "打开\(app.name)失败，请稍后重试"
+                            self.showingAlert = true
+                        }
+                    }
+                }
+            } else {
+                // 应用未安装，提示用户下载
+                showAppInstallAlert(for: app, searchKeyword: keyword)
+            }
+        } else {
+            alertMessage = "无效的应用链接"
+            showingAlert = true
         }
+    }
+
+    private func showAppInstallAlert(for app: AppInfo, searchKeyword: String) {
+        let alert = UIAlertController(
+            title: "应用未安装",
+            message: "您还没有安装\(app.name)，是否前往App Store下载？\n\n下载完成后可以搜索：\(searchKeyword)",
+            preferredStyle: .alert
+        )
+
+        // 取消按钮
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+
+        // 前往App Store按钮
+        alert.addAction(UIAlertAction(title: "前往下载", style: .default) { _ in
+            self.openAppStore(for: app)
+        })
+
+        // 显示弹窗
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(alert, animated: true)
+        }
+    }
+
+    private func openAppStore(for app: AppInfo) {
+        var appStoreURL: URL?
+
+        // 优先使用App Store ID
+        if let appStoreId = app.appStoreId {
+            appStoreURL = URL(string: "https://apps.apple.com/app/id\(appStoreId)")
+        }
+        // 如果没有App Store ID，检查是否有Bundle ID然后搜索应用名称
+        else if app.bundleId != nil {
+            let searchQuery = app.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? app.name
+            appStoreURL = URL(string: "https://apps.apple.com/search?term=\(searchQuery)")
+        }
+        // 最后使用应用名称搜索
+        else {
+            let searchQuery = app.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? app.name
+            appStoreURL = URL(string: "https://apps.apple.com/search?term=\(searchQuery)")
+        }
+
+        if let url = appStoreURL {
+            UIApplication.shared.open(url) { success in
+                if !success {
+                    DispatchQueue.main.async {
+                        self.alertMessage = "无法打开App Store，请手动搜索\(app.name)"
+                        self.showingAlert = true
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - 长按手势处理
+    private func handleLongPress(app: AppInfo) {
+        let hapticFeedback = UIImpactFeedbackGenerator(style: .medium)
+        hapticFeedback.impactOccurred()
+
+        if customApps.contains(app.name) {
+            // 从自定义分类中移除
+            customApps.removeAll { $0 == app.name }
+            customAlertMessage = "已将「\(app.name)」从自定义分类中移除"
+            showingCustomAlert = true
+        } else {
+            // 添加到自定义分类
+            customApps.append(app.name)
+            customAlertMessage = "已将「\(app.name)」添加到自定义分类"
+            showingCustomAlert = true
+        }
+
+        // 保存配置
+        saveCategoryConfigs()
     }
 }
 
@@ -3204,6 +3558,19 @@ struct AppInfo {
     let urlScheme: String
     let bundleId: String? // App的Bundle ID，用于获取真实图标
     let category: String // 应用分类
+    let appStoreId: String? // App Store ID，用于跳转下载
+
+    // 便利初始化器，保持向后兼容
+    init(name: String, icon: String, systemIcon: String, color: Color, urlScheme: String, bundleId: String?, category: String, appStoreId: String? = nil) {
+        self.name = name
+        self.icon = icon
+        self.systemIcon = systemIcon
+        self.color = color
+        self.urlScheme = urlScheme
+        self.bundleId = bundleId
+        self.category = category
+        self.appStoreId = appStoreId
+    }
 }
 
 // 获取已安装App图标的辅助函数
@@ -4675,5 +5042,510 @@ extension Notification.Name {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+// MARK: - 分类按钮组件
+struct CategoryButton: View {
+    let category: CategoryConfig
+    let isSelected: Bool
+    let customAppsCount: Int?
+    let screenHeight: CGFloat
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    // 根据屏幕高度计算按钮尺寸
+    private var buttonHeight: CGFloat {
+        let baseHeight: CGFloat = 36
+        let maxCategories: CGFloat = 14
+        let availableHeight = screenHeight - 120 // 减去标题和边距
+        let calculatedHeight = availableHeight / maxCategories
+        return max(min(calculatedHeight, 50), 32) // 最小32，最大50
+    }
+
+    private var fontSize: CGFloat {
+        buttonHeight > 40 ? 13 : 11
+    }
+
+    private var iconSize: CGFloat {
+        buttonHeight > 40 ? 14 : 12
+    }
+
+    var body: some View {
+        Button(action: {
+            // 苹果风格的触觉反馈
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+            action()
+        }) {
+            HStack(spacing: 6) {
+                // 图标
+                Image(systemName: category.icon)
+                    .font(.system(size: iconSize, weight: .medium))
+                    .foregroundColor(iconColor)
+                    .frame(width: iconSize + 4)
+
+                // 分类名称
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(category.name)
+                        .font(.system(size: fontSize, weight: .medium))
+                        .foregroundColor(textColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    // 自定义分类显示应用数量
+                    if let count = customAppsCount {
+                        Text("\(count)个")
+                            .font(.system(size: fontSize - 2))
+                            .foregroundColor(subtextColor)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(height: buttonHeight)
+            .background(backgroundView)
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: isPressed)
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 4)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+
+    // 计算颜色
+    private var iconColor: Color {
+        if isSelected {
+            return .white
+        } else {
+            return category.color
+        }
+    }
+
+    private var textColor: Color {
+        if isSelected {
+            return .white
+        } else {
+            return .primary
+        }
+    }
+
+    private var subtextColor: Color {
+        if isSelected {
+            return .white.opacity(0.8)
+        } else {
+            return .secondary
+        }
+    }
+
+    // 背景视图
+    private var backgroundView: some View {
+        Group {
+            if isSelected {
+                // 选中状态：绿色背景
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(category.color)
+                    .shadow(color: category.color.opacity(0.3), radius: 1, x: 0, y: 1)
+            } else {
+                // 未选中状态：淡绿色背景 + 边框
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.green.opacity(0.03))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(category.color.opacity(0.15), lineWidth: 0.5)
+                    )
+            }
+        }
+    }
+}
+
+// MARK: - 分类编辑器视图
+struct CategoryEditorView: View {
+    @Binding var categories: [CategoryConfig]
+    @Binding var customApps: [String]
+    let allApps: [AppInfo]
+    @Environment(\.presentationMode) var presentationMode
+    @State private var editingCategory: CategoryConfig?
+    @State private var showingColorPicker = false
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // 分类列表
+                List {
+                    Section(header: Text("分类管理")) {
+                        ForEach(categories.sorted { $0.order < $1.order }) { category in
+                            CategoryEditRow(
+                                category: category,
+                                onEdit: {
+                                    editingCategory = category
+                                    showingColorPicker = true
+                                },
+                                onMoveUp: {
+                                    moveCategory(category, direction: -1)
+                                },
+                                onMoveDown: {
+                                    moveCategory(category, direction: 1)
+                                }
+                            )
+                        }
+                    }
+
+                    Section(header: Text("使用说明")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "hand.tap.fill")
+                                    .foregroundColor(.blue)
+                                Text("点击分类按钮切换分类")
+                                    .font(.system(size: 14))
+                                Spacer()
+                            }
+
+                            HStack {
+                                Image(systemName: "hand.point.up.left.fill")
+                                    .foregroundColor(.orange)
+                                Text("长按应用图标添加到自定义分类")
+                                    .font(.system(size: 14))
+                                Spacer()
+                            }
+
+                            HStack {
+                                Image(systemName: "paintpalette.fill")
+                                    .foregroundColor(Color(red: 0.2, green: 0.7, blue: 0.3))
+                                Text("点击调色板按钮自定义分类外观")
+                                    .font(.system(size: 14))
+                                Spacer()
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+            }
+            .navigationTitle("分类设置")
+            .navigationBarItems(
+                leading: Button("取消") {
+                    presentationMode.wrappedValue.dismiss()
+                },
+                trailing: Button("完成") {
+                    saveCategoryConfigs()
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+            .sheet(isPresented: $showingColorPicker) {
+                if let category = editingCategory {
+                    CategoryColorPickerView(category: category) { updatedCategory in
+                        updateCategory(updatedCategory)
+                    }
+                }
+            }
+        }
+    }
+
+    private func moveCategory(_ category: CategoryConfig, direction: Int) {
+        guard let index = categories.firstIndex(where: { $0.id == category.id }) else { return }
+
+        let newOrder = category.order + direction
+        if newOrder >= 0 && newOrder < categories.count {
+            // 找到目标位置的分类并交换order
+            if let targetIndex = categories.firstIndex(where: { $0.order == newOrder }) {
+                categories[targetIndex].order = category.order
+                categories[index].order = newOrder
+            }
+        }
+    }
+
+    private func updateCategory(_ updatedCategory: CategoryConfig) {
+        if let index = categories.firstIndex(where: { $0.id == updatedCategory.id }) {
+            categories[index] = updatedCategory
+        }
+    }
+
+
+
+    private func saveCategoryConfigs() {
+        if let data = try? JSONEncoder().encode(categories) {
+            UserDefaults.standard.set(data, forKey: "CategoryConfigs")
+        }
+        UserDefaults.standard.set(customApps, forKey: "CustomApps")
+    }
+}
+
+// MARK: - 分类编辑行
+struct CategoryEditRow: View {
+    let category: CategoryConfig
+    let onEdit: () -> Void
+    let onMoveUp: () -> Void
+    let onMoveDown: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 图标和颜色
+            Image(systemName: category.icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(category.color)
+                .frame(width: 24)
+
+            // 分类信息
+            VStack(alignment: .leading, spacing: 2) {
+                Text(category.name)
+                    .font(.system(size: 15, weight: .medium))
+
+                Text("顺序: \(category.order)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            // 操作按钮
+            HStack(spacing: 8) {
+                Button(action: onMoveUp) {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 12))
+                        .foregroundColor(.blue)
+                }
+
+                Button(action: onMoveDown) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12))
+                        .foregroundColor(.blue)
+                }
+
+                Button(action: onEdit) {
+                    Image(systemName: "paintpalette")
+                        .font(.system(size: 12))
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 自定义应用行
+struct CustomAppRow: View {
+    let app: AppInfo
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // 应用图标
+            ZStack {
+                Circle()
+                    .fill(app.color)
+                    .frame(width: 32, height: 32)
+
+                Text(app.icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+            }
+
+            // 应用信息
+            VStack(alignment: .leading, spacing: 2) {
+                Text(app.name)
+                    .font(.system(size: 14, weight: .medium))
+
+                Text(app.category)
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            // 选择状态
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 20))
+                .foregroundColor(isSelected ? .blue : .gray)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onToggle()
+        }
+    }
+}
+
+// MARK: - 颜色选择器视图
+struct CategoryColorPickerView: View {
+    let category: CategoryConfig
+    let onSave: (CategoryConfig) -> Void
+    @Environment(\.presentationMode) var presentationMode
+    @State private var selectedColor: Color
+    @State private var selectedIcon: String
+
+    let availableColors: [Color] = [
+        .green, Color(red: 0.2, green: 0.7, blue: 0.3), Color(red: 0.3, green: 0.8, blue: 0.4), Color(red: 0.1, green: 0.6, blue: 0.2),
+        .primary, .black, .gray, .secondary,
+        Color(.systemGreen), Color(.systemMint), Color(.systemTeal), Color(.systemCyan)
+    ]
+
+    let availableIcons: [String] = [
+        "star.fill", "heart.fill", "bookmark.fill", "flag.fill",
+        "tag.fill", "folder.fill", "doc.fill", "photo.fill",
+        "music.note", "video.fill", "gamecontroller.fill", "car.fill",
+        "house.fill", "person.fill", "globe", "gear"
+    ]
+
+    init(category: CategoryConfig, onSave: @escaping (CategoryConfig) -> Void) {
+        self.category = category
+        self.onSave = onSave
+        self._selectedColor = State(initialValue: category.color)
+        self._selectedIcon = State(initialValue: category.icon)
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 预览
+                VStack(spacing: 16) {
+                    Text("预览效果")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+
+                    VStack(spacing: 12) {
+                        // 未选中状态预览
+                        HStack(spacing: 8) {
+                            Image(systemName: selectedIcon)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(selectedColor)
+                                .frame(width: 20)
+
+                            Text(category.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.primary)
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.systemBackground))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(selectedColor.opacity(0.2), lineWidth: 0.5)
+                                )
+                        )
+
+                        Text("未选中状态")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        // 选中状态预览
+                        HStack(spacing: 8) {
+                            Image(systemName: selectedIcon)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(width: 20)
+
+                            Text(category.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(selectedColor)
+                                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        )
+
+                        Text("选中状态")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6).opacity(0.5))
+                .cornerRadius(16)
+
+                // 颜色选择
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("选择颜色")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
+                        ForEach(availableColors, id: \.self) { color in
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedColor = color
+                                }
+                                // 触觉反馈
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                            }) {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(color)
+                                    .frame(width: 50, height: 50)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.primary, lineWidth: selectedColor == color ? 2 : 0)
+                                    )
+                                    .overlay(
+                                        // 选中状态的勾选标记
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(color == .black || color == .primary ? .white : .black)
+                                            .opacity(selectedColor == color ? 1 : 0)
+                                    )
+                                    .scaleEffect(selectedColor == color ? 1.05 : 1.0)
+                                    .shadow(color: .black.opacity(0.08), radius: selectedColor == color ? 3 : 1, x: 0, y: 1)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                }
+
+                // 图标选择
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("选择图标")
+                        .font(.headline)
+
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 12) {
+                        ForEach(availableIcons, id: \.self) { icon in
+                            Image(systemName: icon)
+                                .font(.system(size: 20))
+                                .foregroundColor(selectedIcon == icon ? selectedColor : .gray)
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(selectedIcon == icon ? selectedColor.opacity(0.2) : Color.clear)
+                                )
+                                .onTapGesture {
+                                    selectedIcon = icon
+                                }
+                        }
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("编辑分类")
+            .navigationBarItems(
+                leading: Button("取消") {
+                    presentationMode.wrappedValue.dismiss()
+                },
+                trailing: Button("保存") {
+                    var updatedCategory = category
+                    updatedCategory.color = selectedColor
+                    updatedCategory.icon = selectedIcon
+                    onSave(updatedCategory)
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
     }
 }
