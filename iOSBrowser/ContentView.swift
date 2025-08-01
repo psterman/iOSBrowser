@@ -13,6 +13,27 @@ import WidgetKit
 import WidgetKit
 #endif
 
+// MARK: - 绿色主题色值标准
+extension Color {
+    // 主绿色 - 与Tab一致的标准绿色
+    static let themeGreen = Color(red: 0.2, green: 0.7, blue: 0.3)
+
+    // 深绿色 - 用于强调和重要元素
+    static let themeDarkGreen = Color(red: 0.15, green: 0.6, blue: 0.25)
+
+    // 浅绿色 - 用于背景和次要元素
+    static let themeLightGreen = Color(red: 0.3, green: 0.8, blue: 0.4)
+
+    // 极浅绿色 - 用于背景和透明效果
+    static let themeVeryLightGreen = Color(red: 0.9, green: 0.98, blue: 0.92)
+
+    // 成功绿色 - 用于成功状态
+    static let themeSuccessGreen = Color(red: 0.2, green: 0.8, blue: 0.3)
+
+    // 错误红色 - 保留用于错误状态（不改为绿色）
+    static let themeErrorRed = Color(red: 0.9, green: 0.2, blue: 0.2)
+}
+
 // MARK: - 确保所有视图类型可见
 // 注意：DataSyncCenter在DataSyncCenter.swift中定义
 
@@ -183,47 +204,47 @@ class DataSyncCenter: ObservableObject {
     // MARK: - 从搜索tab加载应用数据
     private func loadAppsFromSearchTab() {
         allApps = [
-            // 购物类
-            UnifiedAppData(id: "taobao", name: "淘宝", icon: "bag.fill", color: .orange, category: "购物"),
-            UnifiedAppData(id: "tmall", name: "天猫", icon: "bag.fill", color: .red, category: "购物"),
-            UnifiedAppData(id: "pinduoduo", name: "拼多多", icon: "cart.fill", color: .orange, category: "购物"),
-            UnifiedAppData(id: "jd", name: "京东", icon: "shippingbox.fill", color: .red, category: "购物"),
-            UnifiedAppData(id: "xianyu", name: "闲鱼", icon: "fish.fill", color: .blue, category: "购物"),
+            // 购物类 - 统一绿色系
+            UnifiedAppData(id: "taobao", name: "淘宝", icon: "bag.fill", color: .themeGreen, category: "购物"),
+            UnifiedAppData(id: "tmall", name: "天猫", icon: "bag.fill", color: .themeLightGreen, category: "购物"),
+            UnifiedAppData(id: "pinduoduo", name: "拼多多", icon: "cart.fill", color: .themeGreen, category: "购物"),
+            UnifiedAppData(id: "jd", name: "京东", icon: "shippingbox.fill", color: .themeDarkGreen, category: "购物"),
+            UnifiedAppData(id: "xianyu", name: "闲鱼", icon: "fish.fill", color: .themeLightGreen, category: "购物"),
 
-            // 社交媒体
-            UnifiedAppData(id: "zhihu", name: "知乎", icon: "bubble.left.and.bubble.right.fill", color: .blue, category: "社交"),
-            UnifiedAppData(id: "weibo", name: "微博", icon: "at", color: .orange, category: "社交"),
-            UnifiedAppData(id: "xiaohongshu", name: "小红书", icon: "heart.fill", color: .red, category: "社交"),
-            UnifiedAppData(id: "wechat", name: "微信", icon: "message.circle.fill", color: .green, category: "社交"),
+            // 社交媒体 - 统一绿色系
+            UnifiedAppData(id: "zhihu", name: "知乎", icon: "bubble.left.and.bubble.right.fill", color: .themeGreen, category: "社交"),
+            UnifiedAppData(id: "weibo", name: "微博", icon: "at", color: .themeLightGreen, category: "社交"),
+            UnifiedAppData(id: "xiaohongshu", name: "小红书", icon: "heart.fill", color: .themeDarkGreen, category: "社交"),
+            UnifiedAppData(id: "wechat", name: "微信", icon: "message.circle.fill", color: .themeSuccessGreen, category: "社交"),
 
-            // 视频娱乐
-            UnifiedAppData(id: "douyin", name: "抖音", icon: "music.note", color: .black, category: "视频"),
-            UnifiedAppData(id: "kuaishou", name: "快手", icon: "video.circle.fill", color: .orange, category: "视频"),
-            UnifiedAppData(id: "bilibili", name: "bilibili", icon: "tv.fill", color: .pink, category: "视频"),
-            UnifiedAppData(id: "youtube", name: "YouTube", icon: "play.rectangle.fill", color: .red, category: "视频"),
-            UnifiedAppData(id: "youku", name: "优酷", icon: "play.rectangle.fill", color: .blue, category: "视频"),
-            UnifiedAppData(id: "iqiyi", name: "爱奇艺", icon: "tv.fill", color: .green, category: "视频"),
+            // 视频娱乐 - 统一绿色系
+            UnifiedAppData(id: "douyin", name: "抖音", icon: "music.note", color: .themeDarkGreen, category: "视频"),
+            UnifiedAppData(id: "kuaishou", name: "快手", icon: "video.circle.fill", color: .themeGreen, category: "视频"),
+            UnifiedAppData(id: "bilibili", name: "bilibili", icon: "tv.fill", color: .themeLightGreen, category: "视频"),
+            UnifiedAppData(id: "youtube", name: "YouTube", icon: "play.rectangle.fill", color: .themeDarkGreen, category: "视频"),
+            UnifiedAppData(id: "youku", name: "优酷", icon: "play.rectangle.fill", color: .themeGreen, category: "视频"),
+            UnifiedAppData(id: "iqiyi", name: "爱奇艺", icon: "tv.fill", color: .themeSuccessGreen, category: "视频"),
 
-            // 音乐
-            UnifiedAppData(id: "qqmusic", name: "QQ音乐", icon: "music.quarternote.3", color: .green, category: "音乐"),
-            UnifiedAppData(id: "netease_music", name: "网易云音乐", icon: "music.note.list", color: .red, category: "音乐"),
+            // 音乐 - 统一绿色系
+            UnifiedAppData(id: "qqmusic", name: "QQ音乐", icon: "music.quarternote.3", color: .themeSuccessGreen, category: "音乐"),
+            UnifiedAppData(id: "netease_music", name: "网易云音乐", icon: "music.note.list", color: .themeLightGreen, category: "音乐"),
 
-            // 生活服务
-            UnifiedAppData(id: "meituan", name: "美团", icon: "fork.knife", color: .yellow, category: "生活"),
-            UnifiedAppData(id: "eleme", name: "饿了么", icon: "takeoutbag.and.cup.and.straw.fill", color: .blue, category: "生活"),
-            UnifiedAppData(id: "dianping", name: "大众点评", icon: "star.circle.fill", color: .orange, category: "生活"),
-            UnifiedAppData(id: "alipay", name: "支付宝", icon: "creditcard.circle.fill", color: .blue, category: "生活"),
+            // 生活服务 - 统一绿色系
+            UnifiedAppData(id: "meituan", name: "美团", icon: "fork.knife", color: .themeGreen, category: "生活"),
+            UnifiedAppData(id: "eleme", name: "饿了么", icon: "takeoutbag.and.cup.and.straw.fill", color: .themeLightGreen, category: "生活"),
+            UnifiedAppData(id: "dianping", name: "大众点评", icon: "star.circle.fill", color: .themeDarkGreen, category: "生活"),
+            UnifiedAppData(id: "alipay", name: "支付宝", icon: "creditcard.circle.fill", color: .themeSuccessGreen, category: "生活"),
 
-            // 地图导航
-            UnifiedAppData(id: "gaode", name: "高德地图", icon: "map.circle.fill", color: .green, category: "地图"),
-            UnifiedAppData(id: "tencent_map", name: "腾讯地图", icon: "location.circle.fill", color: .green, category: "地图"),
+            // 地图导航 - 保持绿色系
+            UnifiedAppData(id: "gaode", name: "高德地图", icon: "map.circle.fill", color: .themeSuccessGreen, category: "地图"),
+            UnifiedAppData(id: "tencent_map", name: "腾讯地图", icon: "location.circle.fill", color: .themeGreen, category: "地图"),
 
-            // 浏览器
-            UnifiedAppData(id: "quark", name: "夸克", icon: "globe.circle.fill", color: .blue, category: "浏览器"),
-            UnifiedAppData(id: "uc", name: "UC浏览器", icon: "safari.fill", color: .orange, category: "浏览器"),
+            // 浏览器 - 统一绿色系
+            UnifiedAppData(id: "quark", name: "夸克", icon: "globe.circle.fill", color: .themeGreen, category: "浏览器"),
+            UnifiedAppData(id: "uc", name: "UC浏览器", icon: "safari.fill", color: .themeLightGreen, category: "浏览器"),
 
-            // 生活服务中的豆瓣
-            UnifiedAppData(id: "douban", name: "豆瓣", icon: "book.fill", color: .green, category: "生活")
+            // 生活服务中的豆瓣 - 保持绿色系
+            UnifiedAppData(id: "douban", name: "豆瓣", icon: "book.fill", color: .themeSuccessGreen, category: "生活")
         ]
 
         print("📱 从搜索tab加载应用数据: \(allApps.count) 个应用")
@@ -233,38 +254,38 @@ class DataSyncCenter: ObservableObject {
     // MARK: - 从AI tab加载AI助手数据
     private func loadAIFromContactsTab() {
         allAIAssistants = [
-            // 🇨🇳 国内主流AI服务商
-            UnifiedAIData(id: "deepseek", name: "DeepSeek", icon: "brain.head.profile", color: .purple, description: "专业编程助手", apiEndpoint: "https://api.deepseek.com"),
-            UnifiedAIData(id: "qwen", name: "通义千问", icon: "cloud.fill", color: .cyan, description: "阿里云AI", apiEndpoint: "https://dashscope.aliyuncs.com"),
-            UnifiedAIData(id: "chatglm", name: "智谱清言", icon: "lightbulb.fill", color: .yellow, description: "清华智谱AI", apiEndpoint: "https://open.bigmodel.cn"),
-            UnifiedAIData(id: "moonshot", name: "Kimi", icon: "moon.stars.fill", color: .orange, description: "月之暗面", apiEndpoint: "https://api.moonshot.cn"),
-            UnifiedAIData(id: "doubao", name: "豆包", icon: "bubble.left.and.bubble.right", color: .blue, description: "字节跳动AI", apiEndpoint: "https://ark.cn-beijing.volces.com"),
-            UnifiedAIData(id: "wenxin", name: "文心一言", icon: "w.circle.fill", color: .red, description: "百度AI", apiEndpoint: "https://aip.baidubce.com"),
-            UnifiedAIData(id: "spark", name: "讯飞星火", icon: "sparkles", color: .orange, description: "科大讯飞AI", apiEndpoint: "https://spark-api.xf-yun.com"),
-            UnifiedAIData(id: "baichuan", name: "百川智能", icon: "b.circle.fill", color: .green, description: "百川智能AI", apiEndpoint: "https://api.baichuan-ai.com"),
-            UnifiedAIData(id: "minimax", name: "MiniMax", icon: "m.circle.fill", color: .purple, description: "MiniMax AI", apiEndpoint: "https://api.minimax.chat"),
+            // 🇨🇳 国内主流AI服务商 - 统一绿色系
+            UnifiedAIData(id: "deepseek", name: "DeepSeek", icon: "brain.head.profile", color: .themeGreen, description: "专业编程助手", apiEndpoint: "https://api.deepseek.com"),
+            UnifiedAIData(id: "qwen", name: "通义千问", icon: "cloud.fill", color: .themeLightGreen, description: "阿里云AI", apiEndpoint: "https://dashscope.aliyuncs.com"),
+            UnifiedAIData(id: "chatglm", name: "智谱清言", icon: "lightbulb.fill", color: .themeDarkGreen, description: "清华智谱AI", apiEndpoint: "https://open.bigmodel.cn"),
+            UnifiedAIData(id: "moonshot", name: "Kimi", icon: "moon.stars.fill", color: .themeGreen, description: "月之暗面", apiEndpoint: "https://api.moonshot.cn"),
+            UnifiedAIData(id: "doubao", name: "豆包", icon: "bubble.left.and.bubble.right", color: .themeLightGreen, description: "字节跳动AI", apiEndpoint: "https://ark.cn-beijing.volces.com"),
+            UnifiedAIData(id: "wenxin", name: "文心一言", icon: "w.circle.fill", color: .themeDarkGreen, description: "百度AI", apiEndpoint: "https://aip.baidubce.com"),
+            UnifiedAIData(id: "spark", name: "讯飞星火", icon: "sparkles", color: .themeGreen, description: "科大讯飞AI", apiEndpoint: "https://spark-api.xf-yun.com"),
+            UnifiedAIData(id: "baichuan", name: "百川智能", icon: "b.circle.fill", color: .themeSuccessGreen, description: "百川智能AI", apiEndpoint: "https://api.baichuan-ai.com"),
+            UnifiedAIData(id: "minimax", name: "MiniMax", icon: "m.circle.fill", color: .themeLightGreen, description: "MiniMax AI", apiEndpoint: "https://api.minimax.chat"),
 
-            // 硅基流动
-            UnifiedAIData(id: "siliconflow-qwen", name: "千问-硅基流动", icon: "cpu.fill", color: .gray, description: "硅基流动API", apiEndpoint: "https://api.siliconflow.cn"),
+            // 硅基流动 - 统一绿色系
+            UnifiedAIData(id: "siliconflow-qwen", name: "千问-硅基流动", icon: "cpu.fill", color: .themeDarkGreen, description: "硅基流动API", apiEndpoint: "https://api.siliconflow.cn"),
 
-            // 🌍 国际主流AI服务商
-            UnifiedAIData(id: "openai", name: "ChatGPT", icon: "bubble.left.and.bubble.right.fill", color: .green, description: "OpenAI GPT-4", apiEndpoint: "https://api.openai.com"),
-            UnifiedAIData(id: "claude", name: "Claude", icon: "c.circle.fill", color: .indigo, description: "Anthropic Claude", apiEndpoint: "https://api.anthropic.com"),
-            UnifiedAIData(id: "gemini", name: "Gemini", icon: "diamond.fill", color: .blue, description: "Google Gemini", apiEndpoint: "https://generativelanguage.googleapis.com"),
+            // 🌍 国际主流AI服务商 - 统一绿色系
+            UnifiedAIData(id: "openai", name: "ChatGPT", icon: "bubble.left.and.bubble.right.fill", color: .themeSuccessGreen, description: "OpenAI GPT-4", apiEndpoint: "https://api.openai.com"),
+            UnifiedAIData(id: "claude", name: "Claude", icon: "c.circle.fill", color: .themeGreen, description: "Anthropic Claude", apiEndpoint: "https://api.anthropic.com"),
+            UnifiedAIData(id: "gemini", name: "Gemini", icon: "diamond.fill", color: .themeLightGreen, description: "Google Gemini", apiEndpoint: "https://generativelanguage.googleapis.com"),
 
-            // ⚡ 高性能推理
-            UnifiedAIData(id: "groq", name: "Groq", icon: "bolt.circle.fill", color: .orange, description: "超快推理", apiEndpoint: "https://api.groq.com"),
-            UnifiedAIData(id: "together", name: "Together AI", icon: "link.circle.fill", color: .purple, description: "开源模型", apiEndpoint: "https://api.together.xyz"),
-            UnifiedAIData(id: "perplexity", name: "Perplexity", icon: "questionmark.diamond.fill", color: .blue, description: "搜索增强", apiEndpoint: "https://api.perplexity.ai"),
+            // ⚡ 高性能推理 - 统一绿色系
+            UnifiedAIData(id: "groq", name: "Groq", icon: "bolt.circle.fill", color: .themeGreen, description: "超快推理", apiEndpoint: "https://api.groq.com"),
+            UnifiedAIData(id: "together", name: "Together AI", icon: "link.circle.fill", color: .themeDarkGreen, description: "开源模型", apiEndpoint: "https://api.together.xyz"),
+            UnifiedAIData(id: "perplexity", name: "Perplexity", icon: "questionmark.diamond.fill", color: .themeLightGreen, description: "搜索增强", apiEndpoint: "https://api.perplexity.ai"),
 
-            // 🎨 专业工具
-            UnifiedAIData(id: "dalle", name: "DALL-E", icon: "photo.circle.fill", color: .pink, description: "AI绘画", apiEndpoint: "https://api.openai.com"),
-            UnifiedAIData(id: "stablediffusion", name: "Stable Diffusion", icon: "camera.macro.circle.fill", color: .orange, description: "开源绘画", apiEndpoint: "https://api.stability.ai"),
-            UnifiedAIData(id: "elevenlabs", name: "ElevenLabs", icon: "speaker.wave.3.fill", color: .purple, description: "AI语音", apiEndpoint: "https://api.elevenlabs.io"),
-            UnifiedAIData(id: "whisper", name: "Whisper", icon: "mic.circle.fill", color: .blue, description: "语音识别", apiEndpoint: "https://api.openai.com"),
+            // 🎨 专业工具 - 统一绿色系
+            UnifiedAIData(id: "dalle", name: "DALL-E", icon: "photo.circle.fill", color: .themeGreen, description: "AI绘画", apiEndpoint: "https://api.openai.com"),
+            UnifiedAIData(id: "stablediffusion", name: "Stable Diffusion", icon: "camera.macro.circle.fill", color: .themeLightGreen, description: "开源绘画", apiEndpoint: "https://api.stability.ai"),
+            UnifiedAIData(id: "elevenlabs", name: "ElevenLabs", icon: "speaker.wave.3.fill", color: .themeDarkGreen, description: "AI语音", apiEndpoint: "https://api.elevenlabs.io"),
+            UnifiedAIData(id: "whisper", name: "Whisper", icon: "mic.circle.fill", color: .themeGreen, description: "语音识别", apiEndpoint: "https://api.openai.com"),
 
-            // 本地部署
-            UnifiedAIData(id: "ollama", name: "Ollama", icon: "server.rack", color: .gray, description: "本地部署", apiEndpoint: "http://localhost:11434")
+            // 本地部署 - 统一绿色系
+            UnifiedAIData(id: "ollama", name: "Ollama", icon: "server.rack", color: .themeDarkGreen, description: "本地部署", apiEndpoint: "http://localhost:11434")
         ]
 
         // 基于API配置过滤可用的AI助手
@@ -756,17 +777,17 @@ struct UnifiedAppData: Codable, Identifiable {
     // 计算属性，用于UI显示
     var color: Color {
         switch colorName {
-        case "orange": return .orange
-        case "red": return .red
-        case "blue": return .blue
-        case "green": return .green
-        case "yellow": return .yellow
-        case "pink": return .pink
-        case "purple": return .purple
-        case "cyan": return .cyan
-        case "gray": return .gray
-        case "black": return .black
-        default: return .blue
+        case "orange": return .themeLightGreen
+        case "red": return .themeDarkGreen
+        case "blue": return .themeGreen
+        case "green": return .themeSuccessGreen
+        case "yellow": return .themeLightGreen
+        case "pink": return .themeLightGreen
+        case "purple": return .themeGreen
+        case "cyan": return .themeLightGreen
+        case "gray": return .themeDarkGreen
+        case "black": return .themeDarkGreen
+        default: return .themeGreen
         }
     }
 
@@ -804,17 +825,17 @@ struct UnifiedAIData: Codable, Identifiable {
     // 计算属性，用于UI显示
     var color: Color {
         switch colorName {
-        case "orange": return .orange
-        case "red": return .red
-        case "blue": return .blue
-        case "green": return .green
-        case "yellow": return .yellow
-        case "pink": return .pink
-        case "purple": return .purple
-        case "cyan": return .cyan
-        case "gray": return .gray
-        case "indigo": return .indigo
-        default: return .blue
+        case "orange": return .themeLightGreen
+        case "red": return .themeDarkGreen
+        case "blue": return .themeGreen
+        case "green": return .themeSuccessGreen
+        case "yellow": return .themeLightGreen
+        case "pink": return .themeLightGreen
+        case "purple": return .themeGreen
+        case "cyan": return .themeLightGreen
+        case "gray": return .themeDarkGreen
+        case "indigo": return .themeGreen
+        default: return .themeGreen
         }
     }
 
@@ -875,7 +896,7 @@ struct WidgetConfigView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.blue)
+                        .background(Color.themeGreen)
                         .cornerRadius(8)
                     }
 
@@ -891,7 +912,7 @@ struct WidgetConfigView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.orange)
+                        .background(Color.themeLightGreen)
                         .cornerRadius(6)
                     }
 
@@ -900,7 +921,7 @@ struct WidgetConfigView: View {
                     }) {
                         Image(systemName: "questionmark.circle")
                             .font(.title2)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                     }
                 }
                 .padding(.horizontal)
@@ -918,7 +939,7 @@ struct WidgetConfigView: View {
                                 Text(getTabTitle(index))
                                     .font(.caption)
                             }
-                            .foregroundColor(selectedTab == index ? .blue : .secondary)
+                            .foregroundColor(selectedTab == index ? .themeGreen : .secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                         }
@@ -1302,45 +1323,45 @@ struct SearchEngineConfigView: View {
     // 按分类组织的搜索引擎 - 分解为更小的部分以避免编译器超时
     private var domesticEngines: [(String, String, String, Color)] {
         [
-            ("baidu", "百度", "magnifyingglass.circle.fill", Color.blue),
-            ("sogou", "搜狗", "s.circle.fill", Color.orange),
-            ("360", "360搜索", "360.circle.fill", Color.green),
-            ("shenma", "神马搜索", "s.square.fill", Color.purple),
-            ("chinaso", "中国搜索", "c.circle.fill", Color.red),
-            ("haosou", "好搜", "h.circle.fill", Color.cyan)
+            ("baidu", "百度", "magnifyingglass.circle.fill", Color.themeGreen),
+            ("sogou", "搜狗", "s.circle.fill", Color.themeLightGreen),
+            ("360", "360搜索", "360.circle.fill", Color.themeSuccessGreen),
+            ("shenma", "神马搜索", "s.square.fill", Color.themeDarkGreen),
+            ("chinaso", "中国搜索", "c.circle.fill", Color.themeGreen),
+            ("haosou", "好搜", "h.circle.fill", Color.themeLightGreen)
         ]
     }
 
     private var internationalEngines: [(String, String, String, Color)] {
         [
-            ("google", "Google", "globe", Color.red),
-            ("bing", "必应", "b.circle.fill", Color.blue),
-            ("duckduckgo", "DuckDuckGo", "shield.fill", Color.orange),
-            ("yahoo", "Yahoo", "y.circle.fill", Color.purple),
-            ("yandex", "Yandex", "y.square.fill", Color.red),
-            ("ask", "Ask", "questionmark.circle.fill", Color.green)
+            ("google", "Google", "globe", Color.themeGreen),
+            ("bing", "必应", "b.circle.fill", Color.themeLightGreen),
+            ("duckduckgo", "DuckDuckGo", "shield.fill", Color.themeDarkGreen),
+            ("yahoo", "Yahoo", "y.circle.fill", Color.themeGreen),
+            ("yandex", "Yandex", "y.square.fill", Color.themeLightGreen),
+            ("ask", "Ask", "questionmark.circle.fill", Color.themeSuccessGreen)
         ]
     }
 
     private var aiEngines: [(String, String, String, Color)] {
         [
-            ("perplexity", "Perplexity", "brain.head.profile", Color.purple),
-            ("you", "You.com", "y.circle", Color.blue),
-            ("phind", "Phind", "p.circle.fill", Color.green),
-            ("andi", "Andi", "a.circle.fill", Color.orange),
-            ("neeva", "Neeva", "n.circle.fill", Color.indigo),
-            ("kagi", "Kagi", "k.circle.fill", Color.mint)
+            ("perplexity", "Perplexity", "brain.head.profile", Color.themeGreen),
+            ("you", "You.com", "y.circle", Color.themeLightGreen),
+            ("phind", "Phind", "p.circle.fill", Color.themeSuccessGreen),
+            ("andi", "Andi", "a.circle.fill", Color.themeDarkGreen),
+            ("neeva", "Neeva", "n.circle.fill", Color.themeGreen),
+            ("kagi", "Kagi", "k.circle.fill", Color.themeLightGreen)
         ]
     }
 
     private var professionalEngines: [(String, String, String, Color)] {
         [
-            ("scholar", "谷歌学术", "graduationcap.fill", Color.blue),
-            ("github", "GitHub", "chevron.left.forwardslash.chevron.right", Color.black),
-            ("stackoverflow", "Stack Overflow", "questionmark.square.fill", Color.orange),
-            ("arxiv", "arXiv", "doc.text.fill", Color.red),
-            ("pubmed", "PubMed", "cross.case.fill", Color.green),
-            ("ieee", "IEEE Xplore", "bolt.circle.fill", Color.blue)
+            ("scholar", "谷歌学术", "graduationcap.fill", Color.themeGreen),
+            ("github", "GitHub", "chevron.left.forwardslash.chevron.right", Color.themeDarkGreen),
+            ("stackoverflow", "Stack Overflow", "questionmark.square.fill", Color.themeLightGreen),
+            ("arxiv", "arXiv", "doc.text.fill", Color.themeGreen),
+            ("pubmed", "PubMed", "cross.case.fill", Color.themeSuccessGreen),
+            ("ieee", "IEEE Xplore", "bolt.circle.fill", Color.themeDarkGreen)
         ]
     }
 
@@ -1374,7 +1395,7 @@ struct SearchEngineConfigView: View {
                         HStack(spacing: 12) {
                             Label("\(dataSyncCenter.selectedSearchEngines.count)", systemImage: "checkmark.circle.fill")
                                 .font(.caption)
-                                .foregroundColor(.blue)
+                                .foregroundColor(.themeGreen)
 
                             Label("已同步", systemImage: "icloud.and.arrow.up")
                                 .font(.caption)
@@ -1448,7 +1469,7 @@ struct SearchEngineConfigView: View {
 
                     HStack {
                         Image(systemName: "info.circle")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                             .font(.caption)
 
                         Text("最多选择4个搜索引擎，至少保留1个")
@@ -1563,7 +1584,7 @@ struct UnifiedAppConfigView: View {
 
                         Text("当前已选择: \(dataSyncCenter.selectedApps.count) 个")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                     }
 
                     Spacer()
@@ -1572,7 +1593,7 @@ struct UnifiedAppConfigView: View {
                         dataSyncCenter.refreshAllData()
                     }) {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                             .font(.title3)
                     }
                 }
@@ -1782,7 +1803,7 @@ struct UnifiedAIConfigView: View {
 
                         Text("当前已选择: \(dataSyncCenter.selectedAIAssistants.count) 个")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                     }
 
                     Spacer()
@@ -1791,7 +1812,7 @@ struct UnifiedAIConfigView: View {
                         dataSyncCenter.refreshAllData()
                     }) {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                             .font(.title3)
                     }
                 }
@@ -1848,7 +1869,7 @@ struct UnifiedAIConfigView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.themeLightGreen)
 
                         Text(showOnlyAvailable ? "暂无已配置API的AI助手" : "AI助手列表为空")
                             .font(.headline)
@@ -1898,7 +1919,7 @@ struct UnifiedAIConfigView: View {
                                             .foregroundColor(.red)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 2)
-                                            .background(Color.red.opacity(0.2))
+                                            .background(Color.themeErrorRed.opacity(0.2))
                                             .cornerRadius(4)
                                     }
                                 }
@@ -2026,16 +2047,16 @@ struct UnifiedAIConfigView: View {
 struct QuickActionConfigView: View {
     @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
 
-    // 快捷操作选项
+    // 快捷操作选项 - 统一绿色系
     private let quickActions = [
-        ("search", "快速搜索", "magnifyingglass", Color.blue),
-        ("bookmark", "书签管理", "bookmark.fill", Color.orange),
-        ("history", "浏览历史", "clock.fill", Color.green),
-        ("ai_chat", "AI对话", "brain.head.profile", Color.purple),
-        ("translate", "翻译工具", "textformat.abc", Color.red),
-        ("qr_scan", "二维码扫描", "qrcode.viewfinder", Color.cyan),
-        ("clipboard", "剪贴板", "doc.on.clipboard", Color.gray),
-        ("settings", "快速设置", "gearshape.fill", Color.blue)
+        ("search", "快速搜索", "magnifyingglass", Color.themeGreen),
+        ("bookmark", "书签管理", "bookmark.fill", Color.themeLightGreen),
+        ("history", "浏览历史", "clock.fill", Color.themeSuccessGreen),
+        ("ai_chat", "AI对话", "brain.head.profile", Color.themeDarkGreen),
+        ("translate", "翻译工具", "textformat.abc", Color.themeGreen),
+        ("qr_scan", "二维码扫描", "qrcode.viewfinder", Color.themeLightGreen),
+        ("clipboard", "剪贴板", "doc.on.clipboard", Color.themeDarkGreen),
+        ("settings", "快速设置", "gearshape.fill", Color.themeGreen)
     ]
 
     var body: some View {
@@ -2054,7 +2075,7 @@ struct QuickActionConfigView: View {
 
                         Text("当前已选择: \(dataSyncCenter.selectedQuickActions.count) 个")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                     }
 
                     Spacer()
@@ -2063,7 +2084,7 @@ struct QuickActionConfigView: View {
                         dataSyncCenter.refreshAllData()
                     }) {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.themeGreen)
                             .font(.title3)
                     }
                 }
@@ -2395,10 +2416,6 @@ struct ContentView: View {
     @StateObject private var webViewModel = WebViewModel()
     @EnvironmentObject var deepLinkHandler: DeepLinkHandler
     @State private var selectedTab = 0
-    @State private var dragOffset: CGFloat = 0
-    @State private var isDragging = false
-    @State private var initialDragLocation: CGPoint = .zero
-    @State private var canSwitchTab = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -2418,64 +2435,8 @@ struct ContentView: View {
                     WidgetConfigView()
                         .frame(width: geometry.size.width)
                 }
-                .offset(x: -CGFloat(selectedTab) * geometry.size.width + dragOffset)
-                .animation(isDragging ? .none : .spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0), value: selectedTab)
-                .gesture(
-                    DragGesture(coordinateSpace: .global)
-                        .onChanged { value in
-                            // 检查边界条件
-                            let canSwipeLeft = selectedTab < 3 // 不是最后一个tab
-                            let canSwipeRight = selectedTab > 0 // 不是第一个tab
-
-                            // 根据滑动方向和边界条件决定是否允许拖拽
-                            let isSwipingLeft = value.translation.width < 0
-                            let isSwipingRight = value.translation.width > 0
-
-                            // 检查是否是从屏幕边缘开始的滑动（提高优先级）
-                            let edgeThreshold: CGFloat = 50
-                            let isFromLeftEdge = value.startLocation.x < edgeThreshold
-                            let isFromRightEdge = value.startLocation.x > geometry.size.width - edgeThreshold
-                            let isEdgeSwipe = isFromLeftEdge || isFromRightEdge
-
-                            // 检查滑动距离是否足够（避免误触）
-                            let swipeDistance = abs(value.translation.width)
-                            let minSwipeDistance: CGFloat = isEdgeSwipe ? 10 : 30
-
-                            if swipeDistance > minSwipeDistance &&
-                               ((isSwipingLeft && canSwipeLeft) || (isSwipingRight && canSwipeRight)) {
-                                isDragging = true
-                                // 限制拖拽范围，防止过度滑动
-                                let maxOffset = geometry.size.width * 0.3
-                                dragOffset = max(-maxOffset, min(maxOffset, value.translation.width))
-                            }
-                        }
-                        .onEnded { value in
-                            isDragging = false
-                            let threshold: CGFloat = geometry.size.width * 0.12 // 更低的阈值，更敏感
-                            let velocity = value.predictedEndLocation.x - value.location.x
-
-                            // 考虑速度和距离，微信风格的快速响应
-                            let shouldSwitchTab = abs(value.translation.width) > threshold || abs(velocity) > 200
-
-                            // 向右滑动（显示前一个tab）
-                            if (value.translation.width > 0 || velocity > 0) && shouldSwitchTab && selectedTab > 0 {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.9, blendDuration: 0)) {
-                                    selectedTab -= 1
-                                }
-                            }
-                            // 向左滑动（显示后一个tab）
-                            else if (value.translation.width < 0 || velocity < 0) && shouldSwitchTab && selectedTab < 3 {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.9, blendDuration: 0)) {
-                                    selectedTab += 1
-                                }
-                            }
-
-                            // 快速重置拖拽偏移
-                            withAnimation(.spring(response: 0.2, dampingFraction: 1.0, blendDuration: 0)) {
-                                dragOffset = 0
-                            }
-                        }
-                )
+                .offset(x: -CGFloat(selectedTab) * geometry.size.width)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0), value: selectedTab)
                 .clipped()
             }
 
@@ -3289,7 +3250,7 @@ struct SearchView: View {
                         }) {
                             Image(systemName: showingCategoryDrawer ? "sidebar.left" : "sidebar.right")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.blue)
+                                .foregroundColor(.themeGreen)
                         }
 
                         Spacer()
@@ -3714,7 +3675,7 @@ struct ChatView: View {
                         Text("返回")
                             .font(.body)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(.themeGreen)
                 }
 
                 Spacer()
@@ -3732,7 +3693,7 @@ struct ChatView: View {
 
                 Button(action: onBack) {
                     Text("完成")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                 }
             }
             .padding(.horizontal, 16)
@@ -3863,7 +3824,7 @@ struct ChatMessageRow: View {
                     Text(message.content)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Color.blue)
+                        .background(Color.themeGreen)
                         .foregroundColor(.white)
                         .cornerRadius(18)
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
@@ -4025,7 +3986,7 @@ struct SimpleAIChatView: View {
                 }) {
                     Text(showDetailedInfo ? "简洁模式" : "详细信息")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                 }
 
                 Spacer()
@@ -4034,7 +3995,7 @@ struct SimpleAIChatView: View {
                     showingAPIConfig = true
                 }) {
                     Image(systemName: "gearshape.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                 }
             }
             .padding(.horizontal)
@@ -4153,7 +4114,7 @@ struct SmartSearchBar: View {
             HStack(spacing: 8) {
                 // 搜索图标
                 Image(systemName: "brain.head.profile")
-                    .foregroundColor(.blue)
+                    .foregroundColor(.themeGreen)
                     .font(.title3)
 
                 // 输入框
@@ -4184,7 +4145,7 @@ struct SmartSearchBar: View {
                     showingPromptPicker = true
                 }) {
                     Image(systemName: "doc.text.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.themeLightGreen)
                         .font(.title3)
                 }
 
@@ -4262,7 +4223,7 @@ struct SearchPreviewCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "brain.head.profile")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                     Text("AI搜索")
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -4311,7 +4272,7 @@ struct SearchPreviewCard: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.blue)
+                    .background(Color.themeGreen)
                     .cornerRadius(8)
                 }
             }
@@ -4324,7 +4285,7 @@ struct SearchPreviewCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "clock.arrow.circlepath")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.themeLightGreen)
                     Text("历史记录")
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -4342,10 +4303,10 @@ struct SearchPreviewCard: View {
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.orange)
+                    .foregroundColor(.themeLightGreen)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.orange.opacity(0.1))
+                    .background(Color.themeLightGreen.opacity(0.1))
                     .cornerRadius(8)
                 }
             }
@@ -4394,14 +4355,14 @@ struct ContactRow: View {
                     if isPinned {
                         Image(systemName: "pin.fill")
                             .font(.caption)
-                            .foregroundColor(.orange)
+                            .foregroundColor(.themeLightGreen)
                     }
 
                     Spacer()
 
                     // API状态指示器
                     Circle()
-                        .fill(hasAPIKey ? Color.green : Color.red)
+                        .fill(hasAPIKey ? Color.themeSuccessGreen : Color.themeErrorRed)
                         .frame(width: 8, height: 8)
                 }
 
@@ -4489,7 +4450,7 @@ struct MultiAIChatView: View {
                         Text("返回")
                             .font(.body)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(.themeGreen)
                 }
 
                 Spacer()
@@ -4507,7 +4468,7 @@ struct MultiAIChatView: View {
 
                 Button(action: onBack) {
                     Text("完成")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                 }
             }
             .padding(.horizontal, 16)
@@ -4679,7 +4640,7 @@ struct MultiAIChatMessageRow: View {
                     Text(message.content)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Color.blue)
+                        .background(Color.themeGreen)
                         .foregroundColor(.white)
                         .cornerRadius(18)
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
@@ -4695,7 +4656,7 @@ struct MultiAIChatMessageRow: View {
                             Text(aiSource)
                                 .font(.caption)
                                 .fontWeight(.medium)
-                                .foregroundColor(.blue)
+                                .foregroundColor(.themeGreen)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
                                 .background(Color.blue.opacity(0.1))
@@ -4905,7 +4866,7 @@ struct SingleContactAPIConfigView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(apiKey.isEmpty ? Color.gray : Color.blue)
+                            .background(apiKey.isEmpty ? Color.gray : Color.themeGreen)
                             .cornerRadius(10)
                     }
                     .disabled(apiKey.isEmpty)
@@ -4976,9 +4937,9 @@ struct PromptPickerView: View {
                     }) {
                         HStack {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.themeGreen)
                             Text("创建自定义Prompt")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.themeGreen)
                         }
                     }
                 }
@@ -5204,7 +5165,7 @@ struct CategoryEditorView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Image(systemName: "hand.tap.fill")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.themeGreen)
                                 Text("点击分类按钮切换分类")
                                     .font(.system(size: 14))
                                 Spacer()
@@ -5212,7 +5173,7 @@ struct CategoryEditorView: View {
 
                             HStack {
                                 Image(systemName: "hand.point.up.left.fill")
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(.themeLightGreen)
                                 Text("长按应用图标添加到自定义分类")
                                     .font(.system(size: 14))
                                 Spacer()
@@ -5311,19 +5272,19 @@ struct CategoryEditRow: View {
                 Button(action: onMoveUp) {
                     Image(systemName: "chevron.up")
                         .font(.system(size: 12))
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                 }
 
                 Button(action: onMoveDown) {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12))
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeGreen)
                 }
 
                 Button(action: onEdit) {
                     Image(systemName: "paintpalette")
                         .font(.system(size: 12))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.themeLightGreen)
                 }
             }
         }

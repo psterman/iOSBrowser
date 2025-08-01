@@ -106,23 +106,27 @@ struct BrowserView: View {
     @State private var showingPromptManager = false
     @State private var showingSearchEngineSelector = false
 
+    // 边缘滑动返回手势状态
+    @State private var edgeSwipeOffset: CGFloat = 0
+    @State private var isEdgeSwiping = false
+
     // 全局Prompt状态管理
     @StateObject private var promptManager = GlobalPromptManager.shared
 
     private let searchEngines = [
-        BrowserSearchEngine(id: "baidu", name: "百度", url: "https://www.baidu.com/s?wd=", icon: "magnifyingglass", color: .blue),
-        BrowserSearchEngine(id: "bing", name: "必应", url: "https://www.bing.com/search?q=", icon: "magnifyingglass.circle", color: .orange),
-        BrowserSearchEngine(id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", icon: "brain.head.profile", color: .purple),
-        BrowserSearchEngine(id: "kimi", name: "Kimi", url: "https://kimi.moonshot.cn/", icon: "moon.stars", color: .orange),
+        BrowserSearchEngine(id: "baidu", name: "百度", url: "https://www.baidu.com/s?wd=", icon: "magnifyingglass", color: .green),
+        BrowserSearchEngine(id: "bing", name: "必应", url: "https://www.bing.com/search?q=", icon: "magnifyingglass.circle", color: .green),
+        BrowserSearchEngine(id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", icon: "brain.head.profile", color: .green),
+        BrowserSearchEngine(id: "kimi", name: "Kimi", url: "https://kimi.moonshot.cn/", icon: "moon.stars", color: .green),
         BrowserSearchEngine(id: "doubao", name: "豆包", url: "https://www.doubao.com/chat/", icon: "bubble.left.and.bubble.right", color: .green),
-        BrowserSearchEngine(id: "wenxin", name: "文心一言", url: "https://yiyan.baidu.com/", icon: "doc.text", color: .red),
-        BrowserSearchEngine(id: "yuanbao", name: "元宝", url: "https://yuanbao.tencent.com/", icon: "diamond", color: .blue),
-        BrowserSearchEngine(id: "chatglm", name: "智谱清言", url: "https://chatglm.cn/main/gdetail", icon: "lightbulb.fill", color: .yellow),
-        BrowserSearchEngine(id: "tongyi", name: "通义千问", url: "https://tongyi.aliyun.com/qianwen/", icon: "cloud.fill", color: .cyan),
-        BrowserSearchEngine(id: "claude", name: "Claude", url: "https://claude.ai/chats", icon: "sparkles", color: .indigo),
+        BrowserSearchEngine(id: "wenxin", name: "文心一言", url: "https://yiyan.baidu.com/", icon: "doc.text", color: .green),
+        BrowserSearchEngine(id: "yuanbao", name: "元宝", url: "https://yuanbao.tencent.com/", icon: "diamond", color: .green),
+        BrowserSearchEngine(id: "chatglm", name: "智谱清言", url: "https://chatglm.cn/main/gdetail", icon: "lightbulb.fill", color: .green),
+        BrowserSearchEngine(id: "tongyi", name: "通义千问", url: "https://tongyi.aliyun.com/qianwen/", icon: "cloud.fill", color: .green),
+        BrowserSearchEngine(id: "claude", name: "Claude", url: "https://claude.ai/chats", icon: "sparkles", color: .green),
         BrowserSearchEngine(id: "chatgpt", name: "ChatGPT", url: "https://chat.openai.com/", icon: "bubble.left.and.bubble.right.fill", color: .green),
-        BrowserSearchEngine(id: "metaso", name: "秘塔", url: "https://metaso.cn/", icon: "lock.shield", color: .gray),
-        BrowserSearchEngine(id: "nano", name: "纳米搜索", url: "https://bot.n.cn/", icon: "atom", color: .pink)
+        BrowserSearchEngine(id: "metaso", name: "秘塔", url: "https://metaso.cn/", icon: "lock.shield", color: .green),
+        BrowserSearchEngine(id: "nano", name: "纳米搜索", url: "https://bot.n.cn/", icon: "atom", color: .green)
     ]
     
     var body: some View {
@@ -214,7 +218,7 @@ struct BrowserView: View {
                                         pasteFromClipboard()
                                     }) {
                                         Image(systemName: "doc.on.clipboard")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(.green)
                                             .font(.system(size: 16))
                                     }
 
@@ -224,7 +228,7 @@ struct BrowserView: View {
                                             loadURL()
                                         }) {
                                             Image(systemName: "arrow.right.circle.fill")
-                                                .foregroundColor(.blue)
+                                                .foregroundColor(.green)
                                                 .font(.system(size: 16))
                                         }
 
@@ -248,7 +252,7 @@ struct BrowserView: View {
                                 showingBookmarks.toggle()
                             }) {
                                 Image(systemName: "book.fill")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.green)
                                     .font(.system(size: 18))
                             }
                         }
@@ -262,7 +266,7 @@ struct BrowserView: View {
                             }) {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(viewModel.canGoBack ? .blue : .gray)
+                                    .foregroundColor(viewModel.canGoBack ? .green : .gray)
                             }
                             .disabled(!viewModel.canGoBack)
                             
@@ -271,7 +275,7 @@ struct BrowserView: View {
                             }) {
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(viewModel.canGoForward ? .blue : .gray)
+                                    .foregroundColor(viewModel.canGoForward ? .green : .gray)
                             }
                             .disabled(!viewModel.canGoForward)
                             
@@ -280,7 +284,7 @@ struct BrowserView: View {
                             }) {
                                 Image(systemName: viewModel.isLoading ? "stop.fill" : "arrow.clockwise")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.green)
                             }
 
                             Button(action: {
@@ -288,7 +292,7 @@ struct BrowserView: View {
                             }) {
                                 Image(systemName: "house.fill")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.green)
                             }
 
                             Spacer()
@@ -299,7 +303,7 @@ struct BrowserView: View {
                                 let isBookmarked = viewModel.urlString != nil && bookmarks.contains(viewModel.urlString!)
                                 Image(systemName: isBookmarked ? "star.fill" : "star")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(isBookmarked ? .yellow : .blue)
+                                    .foregroundColor(isBookmarked ? .yellow : .green)
                             }
                             
                             Button(action: {
@@ -307,7 +311,7 @@ struct BrowserView: View {
                             }) {
                                 Image(systemName: "square.and.arrow.up")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.green)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -341,6 +345,50 @@ struct BrowserView: View {
                         .clipped()
                 }
                 }
+                .offset(x: edgeSwipeOffset)
+                .gesture(
+                    DragGesture(coordinateSpace: .global)
+                        .onChanged { value in
+                            // 只响应从左边缘开始的滑动
+                            let edgeThreshold: CGFloat = 30
+                            let isFromLeftEdge = value.startLocation.x < edgeThreshold
+
+                            // 只有从左边缘开始且向右滑动才响应
+                            if isFromLeftEdge && value.translation.width > 0 {
+                                isEdgeSwiping = true
+                                // 限制滑动距离，创建阻尼效果
+                                let maxOffset: CGFloat = 100
+                                let progress = min(value.translation.width / maxOffset, 1.0)
+                                edgeSwipeOffset = progress * maxOffset
+                            }
+                        }
+                        .onEnded { value in
+                            let threshold: CGFloat = 80
+                            let velocity = value.predictedEndLocation.x - value.location.x
+
+                            // 判断是否应该执行返回操作
+                            let shouldGoBack = (value.translation.width > threshold || velocity > 300) &&
+                                             value.startLocation.x < 30 &&
+                                             viewModel.canGoBack
+
+                            if shouldGoBack {
+                                // 执行返回操作
+                                viewModel.webView.goBack()
+
+                                // 添加成功反馈动画
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    edgeSwipeOffset = 0
+                                }
+                            } else {
+                                // 重置位置
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    edgeSwipeOffset = 0
+                                }
+                            }
+
+                            isEdgeSwiping = false
+                        }
+                )
             }
             .navigationBarHidden(true)
             .onAppear {
@@ -395,7 +443,7 @@ struct BrowserView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(Color.blue)
+                                .background(Color.green)
                                 .cornerRadius(20)
                                 .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                             }
@@ -728,10 +776,10 @@ struct CustomHomePage: View {
     @State private var showingTonePicker = false
 
     private let promptCategories = [
-        PromptCategory(title: "助手", icon: "person.circle", color: .blue, type: .assistant),
+        PromptCategory(title: "助手", icon: "person.circle", color: .green, type: .assistant),
         PromptCategory(title: "身份", icon: "person.badge.key", color: .green, type: .identity),
-        PromptCategory(title: "回复样式", icon: "doc.richtext", color: .orange, type: .replyStyle),
-        PromptCategory(title: "文风风格", icon: "textformat", color: .purple, type: .tone)
+        PromptCategory(title: "回复样式", icon: "doc.richtext", color: .green, type: .replyStyle),
+        PromptCategory(title: "文风风格", icon: "textformat", color: .green, type: .tone)
     ]
 
     var body: some View {
@@ -775,7 +823,7 @@ struct CustomHomePage: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
+                        .background(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.green)
                         .cornerRadius(12)
                 }
                 .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -807,7 +855,7 @@ struct CustomHomePage: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.blue)
+                        .background(Color.green)
                         .cornerRadius(12)
                 }
                 .padding(.horizontal, 24)
@@ -1138,7 +1186,7 @@ struct AssistantPickerView: View {
                         Spacer()
                         if selectedAssistant == assistant {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.green)
                         }
                     }
                 }
@@ -1174,7 +1222,7 @@ struct IdentityPickerView: View {
                         Spacer()
                         if selectedIdentity == identity {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.green)
                         }
                     }
                 }
@@ -1210,7 +1258,7 @@ struct ReplyStylePickerView: View {
                         Spacer()
                         if selectedReplyStyle == style {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.green)
                         }
                     }
                 }
@@ -1246,7 +1294,7 @@ struct TonePickerView: View {
                         Spacer()
                         if selectedTone == tone {
                             Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.green)
                         }
                     }
                 }
@@ -1271,7 +1319,7 @@ struct FloatingPromptView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 50))
-                        .foregroundColor(.blue)
+                        .foregroundColor(.green)
 
                     Text("智能提示")
                         .font(.title2)
@@ -1313,7 +1361,7 @@ struct FloatingPromptView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(copiedToClipboard ? Color.green : Color.blue)
+                        .background(copiedToClipboard ? Color.green : Color.green)
                         .cornerRadius(12)
                     }
                     .disabled(copiedToClipboard)
@@ -1384,7 +1432,7 @@ struct PromptManagerView: View {
 
                                     if promptManager.currentPrompt?.id == prompt.id {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(.green)
                                     }
                                 }
 
@@ -1401,7 +1449,7 @@ struct PromptManagerView: View {
                                             .font(.caption)
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 4)
-                                            .background(promptManager.currentPrompt?.id == prompt.id ? Color.blue : Color.gray)
+                                            .background(promptManager.currentPrompt?.id == prompt.id ? Color.green : Color.gray)
                                             .foregroundColor(.white)
                                             .cornerRadius(8)
                                     }

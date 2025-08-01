@@ -17,19 +17,19 @@ struct SearchView: View {
     
     // 应用数据 - 使用更贴近真实应用的图标和颜色
     private let apps = [
-        AppInfo(name: "淘宝", icon: "bag.fill", color: .orange, urlScheme: "taobao://s.taobao.com/search?q="),
-        AppInfo(name: "拼多多", icon: "cart.fill", color: .orange, urlScheme: "pinduoduo://search?keyword="),
-        AppInfo(name: "知乎", icon: "bubble.left.and.bubble.right.fill", color: .blue, urlScheme: "zhihu://search?q="),
-        AppInfo(name: "抖音", icon: "music.note", color: .black, urlScheme: "snssdk1128://search?keyword="),
-        AppInfo(name: "美团", icon: "fork.knife", color: .yellow, urlScheme: "imeituan://www.meituan.com/search?q="),
+        AppInfo(name: "淘宝", icon: "bag.fill", color: .green, urlScheme: "taobao://s.taobao.com/search?q="),
+        AppInfo(name: "拼多多", icon: "cart.fill", color: .green, urlScheme: "pinduoduo://search?keyword="),
+        AppInfo(name: "知乎", icon: "bubble.left.and.bubble.right.fill", color: .green, urlScheme: "zhihu://search?q="),
+        AppInfo(name: "抖音", icon: "music.note", color: .green, urlScheme: "snssdk1128://search?keyword="),
+        AppInfo(name: "美团", icon: "fork.knife", color: .green, urlScheme: "imeituan://www.meituan.com/search?q="),
         AppInfo(name: "豆瓣", icon: "book.fill", color: .green, urlScheme: "douban://search?q="),
-        AppInfo(name: "微博", icon: "at", color: .orange, urlScheme: "sinaweibo://search?q="),
-        AppInfo(name: "bilibili", icon: "tv.fill", color: .pink, urlScheme: "bilibili://search?keyword="),
-        AppInfo(name: "YouTube", icon: "play.rectangle.fill", color: .red, urlScheme: "youtube://results?search_query="),
-        AppInfo(name: "京东", icon: "shippingbox.fill", color: .red, urlScheme: "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"search\",\"keyword\":\""),
-        AppInfo(name: "闲鱼", icon: "fish.fill", color: .blue, urlScheme: "fleamarket://search?q="),
-        AppInfo(name: "小红书", icon: "heart.fill", color: .red, urlScheme: "xhsdiscover://search/result?keyword="),
-        AppInfo(name: "网易云音乐", icon: "music.note.list", color: .red, urlScheme: "orpheuswidget://search?keyword="),
+        AppInfo(name: "微博", icon: "at", color: .green, urlScheme: "sinaweibo://search?q="),
+        AppInfo(name: "bilibili", icon: "tv.fill", color: .green, urlScheme: "bilibili://search?keyword="),
+        AppInfo(name: "YouTube", icon: "play.rectangle.fill", color: .green, urlScheme: "youtube://results?search_query="),
+        AppInfo(name: "京东", icon: "shippingbox.fill", color: .green, urlScheme: "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"search\",\"keyword\":\""),
+        AppInfo(name: "闲鱼", icon: "fish.fill", color: .green, urlScheme: "fleamarket://search?q="),
+        AppInfo(name: "小红书", icon: "heart.fill", color: .green, urlScheme: "xhsdiscover://search/result?keyword="),
+        AppInfo(name: "网易云音乐", icon: "music.note.list", color: .green, urlScheme: "orpheuswidget://search?keyword="),
         AppInfo(name: "QQ音乐", icon: "music.quarternote.3", color: .green, urlScheme: "qqmusic://search?key=")
     ]
     
