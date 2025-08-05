@@ -123,6 +123,7 @@ extension ChatView {
 extension Notification.Name {
     static let sendPresetPrompt = Notification.Name("sendPresetPrompt")
     static let openDirectChat = Notification.Name("openDirectChat")
+    static let showPlatformHotTrends = Notification.Name("showPlatformHotTrends")
 }
 
 // MARK: - 直接聊天数据模型

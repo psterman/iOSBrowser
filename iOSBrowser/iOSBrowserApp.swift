@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import WidgetKit
+import BackgroundTasks
 
 // MARK: - 通知名称扩展
 extension Notification.Name {
@@ -23,6 +24,7 @@ struct iOSBrowserApp: App {
         print("🚨🚨🚨 ===== 应用启动，立即初始化数据 =====")
         print("🚨🚨🚨 ===== 如果你看到这个日志，说明应用启动正常 =====")
         Self.initializeWidgetData()
+        // 热榜管理器将在需要时自动初始化
         print("🚨🚨🚨 ===== 应用数据初始化完成 =====")
         print("🚨🚨🚨 ===== iOSBrowserApp.init() 执行完成 =====")
     }
@@ -459,4 +461,6 @@ class DeepLinkHandler: ObservableObject {
             break
         }
     }
+
+
 }

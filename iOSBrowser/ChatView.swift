@@ -13,8 +13,33 @@ struct ChatView: View {
     @State private var messages: [ChatMessage] = []
     @State private var isLoading = false
     @Environment(\.presentationMode) var presentationMode
+    @ObservedObject private var hotTrendsManager = MockHotTrendsManager.shared
+    @StateObject private var apiManager = APIConfigManager.shared
+
+    // 检查是否为平台联系人
+    private var isPlatformContact: Bool {
+        contact.supportedFeatures.contains(.hotTrends)
+    }
     
     var body: some View {
+        VStack(spacing: 0) {
+            if isPlatformContact {
+                // 平台热榜界面
+                PlatformHotTrendsContentView(contact: contact)
+            } else {
+                // 传统AI聊天界面
+                TraditionalChatView()
+            }
+        }
+        .navigationTitle(contact.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            initializeContent()
+        }
+    }
+
+    // 传统AI聊天界面
+    private func TraditionalChatView() -> some View {
         VStack(spacing: 0) {
             // 聊天消息列表
             ScrollView {
@@ -22,7 +47,7 @@ struct ChatView: View {
                     ForEach(messages) { message in
                         ChatMessageRow(message: message)
                     }
-                    
+
                     if isLoading {
                         HStack {
                             Spacer()
@@ -41,13 +66,13 @@ struct ChatView: View {
             }
             
             Divider()
-            
+
             // 输入区域
             HStack(spacing: 12) {
                 TextField("输入消息...", text: $messageText, axis: .vertical)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .lineLimit(1...4)
-                
+
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .foregroundColor(messageText.isEmpty ? .gray : .blue)
@@ -58,63 +83,899 @@ struct ChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .navigationTitle(contact.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            // 添加欢迎消息
+    }
+
+    private func initializeContent() {
+        if isPlatformContact {
+            // 平台联系人：初始化热榜数据和欢迎消息
+            loadHistoryMessages()
             if messages.isEmpty {
+                addPlatformWelcomeMessage()
+            }
+            hotTrendsManager.refreshHotTrends(for: contact.id)
+        } else {
+            // AI联系人：加载历史记录
+            loadHistoryMessages()
+            if messages.isEmpty {
+                // 只有在没有历史记录时才添加欢迎消息
                 messages.append(ChatMessage(
                     id: UUID().uuidString,
                     content: "你好！我是\(contact.name)，\(contact.description)。有什么可以帮助你的吗？",
                     isFromUser: false,
                     timestamp: Date(),
-                    status: .sent
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name
                 ))
+                saveHistoryMessages()
             }
         }
     }
-    
-    private func sendMessage() {
+
+    // MARK: - 历史记录管理
+
+    private func loadHistoryMessages() {
+        let key = "chat_history_\(contact.id)"
+        if let data = UserDefaults.standard.data(forKey: key),
+           let savedMessages = try? JSONDecoder().decode([ChatMessage].self, from: data) {
+            messages = savedMessages
+            print("📚 加载了 \(savedMessages.count) 条历史消息 for \(contact.name)")
+        } else {
+            messages = []
+            print("📚 没有找到 \(contact.name) 的历史消息")
+        }
+    }
+
+    private func saveHistoryMessages() {
+        let key = "chat_history_\(contact.id)"
+        print("💾 尝试保存历史记录，key: \(key)")
+        print("💾 当前消息数量: \(messages.count)")
+
+        if let data = try? JSONEncoder().encode(messages) {
+            UserDefaults.standard.set(data, forKey: key)
+            UserDefaults.standard.synchronize() // 强制同步
+            print("✅ 成功保存了 \(messages.count) 条消息 for \(contact.name)")
+
+            // 验证保存是否成功
+            if let savedData = UserDefaults.standard.data(forKey: key),
+               let savedMessages = try? JSONDecoder().decode([ChatMessage].self, from: savedData) {
+                print("✅ 验证保存成功，读取到 \(savedMessages.count) 条消息")
+            } else {
+                print("❌ 验证保存失败，无法读取保存的消息")
+            }
+        } else {
+            print("❌ 保存消息失败 for \(contact.name) - JSON编码失败")
+        }
+    }
+
+    // 添加平台欢迎消息
+    private func addPlatformWelcomeMessage() {
+        let welcomeMessage = ChatMessage(
+            id: UUID().uuidString,
+            content: "欢迎来到\(contact.name)！\n\n我会为您推送最新的热门内容和资讯。您可以：\n\n• 查看实时热榜\n• 浏览热门话题\n• 点击内容查看详情\n\n正在为您获取最新热榜...",
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: [
+                MessageAction(id: "refresh", title: "刷新热榜", type: .refresh),
+                MessageAction(id: "settings", title: "设置", type: .settings)
+            ]
+        )
+        messages.append(welcomeMessage)
+    }
+
+    // 平台特定的消息发送逻辑
+    private func sendPlatformMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        
+
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             content: messageText,
             isFromUser: true,
             timestamp: Date(),
-            status: .sent
+            status: .sent,
+            actions: []
         )
-        
+
         messages.append(userMessage)
+        let currentMessage = messageText.lowercased()
+        messageText = ""
+        isLoading = true
+
+        // 根据用户输入生成平台特定的响应
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let response = generatePlatformResponse(for: currentMessage)
+            messages.append(response)
+            isLoading = false
+
+            // 如果用户请求热榜，自动刷新数据
+            if currentMessage.contains("热榜") || currentMessage.contains("最新") || currentMessage.contains("刷新") {
+                hotTrendsManager.refreshHotTrends(for: contact.id)
+            }
+        }
+    }
+
+    // 生成平台特定的响应
+    private func generatePlatformResponse(for message: String) -> ChatMessage {
+        var responseContent = ""
+        var actions: [MessageAction] = []
+
+        if message.contains("热榜") || message.contains("最新") {
+            responseContent = "正在为您获取\(contact.name)的最新热榜内容..."
+            actions = [
+                MessageAction(id: "view_hottrends", title: "查看热榜", type: .viewContent),
+                MessageAction(id: "refresh", title: "刷新", type: .refresh)
+            ]
+        } else if message.contains("帮助") || message.contains("功能") {
+            responseContent = "我可以为您提供以下服务：\n\n📊 实时热榜推送\n🔥 热门话题追踪\n📱 一键跳转到应用\n🔄 定时内容更新\n\n您想了解哪个功能？"
+            actions = [
+                MessageAction(id: "view_hottrends", title: "查看热榜", type: .viewContent),
+                MessageAction(id: "settings", title: "设置", type: .settings)
+            ]
+        } else if message.contains("设置") || message.contains("配置") {
+            responseContent = "您可以设置：\n\n⏰ 推送频率\n🏷️ 关注分类\n🔔 通知提醒\n\n需要调整哪项设置？"
+            actions = [
+                MessageAction(id: "settings", title: "打开设置", type: .settings)
+            ]
+        } else {
+            responseContent = "我理解您想了解\(message)相关的内容。\n\n作为\(contact.name)的智能助手，我专注于为您提供最新的热门资讯和话题。您可以查看当前热榜或告诉我您感兴趣的内容类型。"
+            actions = [
+                MessageAction(id: "view_hottrends", title: "查看热榜", type: .viewContent),
+                MessageAction(id: "refresh", title: "刷新内容", type: .refresh)
+            ]
+        }
+
+        return ChatMessage(
+            id: UUID().uuidString,
+            content: responseContent,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: actions,
+            aiSource: contact.name
+        )
+    }
+    
+    private func sendMessage() {
+        if isPlatformContact {
+            sendPlatformMessage()
+        } else {
+            sendAIMessage()
+        }
+    }
+
+    // 传统AI消息发送
+    private func sendAIMessage() {
+        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let userMessage = ChatMessage(
+            id: UUID().uuidString,
+            content: messageText,
+            isFromUser: true,
+            timestamp: Date(),
+            status: .sent,
+            actions: [],
+            isHistorical: false,
+            aiSource: nil
+        )
+
+        messages.append(userMessage)
+        saveHistoryMessages() // 保存用户消息
+
         let currentMessage = messageText
         messageText = ""
         isLoading = true
-        
-        // 模拟AI响应
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            let aiResponse = ChatMessage(
+
+        print("🚀 开始调用 \(contact.name) API，消息: \(currentMessage)")
+
+        // 实际调用AI API
+        callAIAPI(message: currentMessage)
+    }
+
+    // 调用AI API - 完全重写的逻辑
+    private func callAIAPI(message: String) {
+        print("🔍 开始API调用检查...")
+        print("🔍 联系人名称: '\(contact.name)'")
+        print("🔍 联系人ID: '\(contact.id)'")
+
+        // 第一步：检查API密钥
+        guard let apiKey = apiManager.getAPIKey(for: contact.id) else {
+            print("❌ 未找到API密钥配置")
+            showAPIKeyMissingError()
+            return
+        }
+
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("❌ API密钥为空")
+            showAPIKeyMissingError()
+            return
+        }
+
+        print("✅ 找到API密钥: \(apiKey.prefix(10))...")
+
+        // 第二步：根据联系人ID调用对应的API
+        print("🎯 开始路由到具体的API服务...")
+
+        if contact.id == "deepseek" {
+            print("🎯 确认调用DeepSeek API")
+            callDeepSeekAPIDirectly(message: message, apiKey: apiKey)
+        } else if contact.id == "openai" {
+            print("🎯 确认调用OpenAI API")
+            callOpenAIAPI(message: message, apiKey: apiKey)
+        } else {
+            print("❌ 未知的AI服务: \(contact.id)")
+            showUnsupportedServiceError()
+        }
+    }
+
+    // 显示API密钥缺失错误
+    private func showAPIKeyMissingError() {
+        DispatchQueue.main.async {
+            let errorResponse = ChatMessage(
                 id: UUID().uuidString,
-                content: generateAIResponse(for: currentMessage),
+                content: "❌ 未配置API密钥\n\n请按以下步骤配置：\n1. 点击右上角设置按钮\n2. 找到\(self.contact.name)配置\n3. 输入有效的API密钥\n4. 保存后重新尝试",
                 isFromUser: false,
                 timestamp: Date(),
-                status: .sent
+                status: .sent,
+                actions: [],
+                isHistorical: false,
+                aiSource: self.contact.name
             )
-            messages.append(aiResponse)
-            isLoading = false
+            self.messages.append(errorResponse)
+            self.saveHistoryMessages()
+            self.isLoading = false
+        }
+    }
+
+    // 显示不支持的服务错误
+    private func showUnsupportedServiceError() {
+        DispatchQueue.main.async {
+            let errorResponse = ChatMessage(
+                id: UUID().uuidString,
+                content: "❌ 暂不支持的AI服务\n\n当前仅支持：\n• DeepSeek\n• OpenAI\n\n请选择支持的AI服务进行对话。",
+                isFromUser: false,
+                timestamp: Date(),
+                status: .sent,
+                actions: [],
+                isHistorical: false,
+                aiSource: self.contact.name
+            )
+            self.messages.append(errorResponse)
+            self.saveHistoryMessages()
+            self.isLoading = false
         }
     }
     
-    private func generateAIResponse(for message: String) -> String {
-        // 简单的模拟响应
-        let responses = [
-            "这是一个很有趣的问题！让我来帮你分析一下...",
-            "根据我的理解，\(message.prefix(20))... 这个问题可以从多个角度来看。",
-            "感谢你的提问！关于这个话题，我建议...",
-            "这确实是个值得深入思考的问题。我的看法是...",
-            "让我为你详细解释一下这个概念..."
+    // MARK: - API调用函数
+
+    // DeepSeek API直接调用 - 绝不使用模板响应
+    private func callDeepSeekAPIDirectly(message: String, apiKey: String) {
+        print("🚀 开始DeepSeek API直接调用")
+        print("🔑 API密钥: \(apiKey.prefix(10))...")
+        print("📝 用户消息: \(message)")
+
+        // DeepSeek API端点
+        guard let url = URL(string: "https://api.deepseek.com/v1/chat/completions") else {
+            print("❌ API端点URL无效")
+            showAPIError("API端点配置错误，请联系开发者")
+            return
+        }
+
+        print("🌐 API端点: \(url.absoluteString)")
+
+        // 构建请求
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30.0
+
+        // 请求体
+        let requestBody: [String: Any] = [
+            "model": "deepseek-chat",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "stream": false,
+            "max_tokens": 2000,
+            "temperature": 0.7
         ]
-        
-        return responses.randomElement() ?? "抱歉，我现在无法处理这个请求。请稍后再试。"
+
+        print("📤 请求体: \(requestBody)")
+
+        // 编码请求体
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: requestBody, options: [])
+            request.httpBody = jsonData
+            print("✅ 请求体编码成功")
+        } catch {
+            print("❌ 请求体编码失败: \(error)")
+            showAPIError("请求编码失败: \(error.localizedDescription)")
+            return
+        }
+
+        print("🌐 发送网络请求...")
+
+        // 发送请求
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            print("📥 收到网络响应")
+
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                // 检查网络错误
+                if let error = error {
+                    print("❌ 网络错误: \(error.localizedDescription)")
+                    self?.showAPIError("网络连接失败: \(error.localizedDescription)\n\n请检查网络连接或稍后重试")
+                    return
+                }
+
+                // 检查HTTP响应
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("❌ 无效的HTTP响应")
+                    self?.showAPIError("服务器响应无效")
+                    return
+                }
+
+                print("📊 HTTP状态码: \(httpResponse.statusCode)")
+
+                // 检查响应数据
+                guard let data = data else {
+                    print("❌ 响应数据为空")
+                    self?.showAPIError("服务器返回空数据")
+                    return
+                }
+
+                print("📄 响应数据大小: \(data.count) bytes")
+
+                // 解析响应
+                self?.parseDeepSeekAPIResponse(data: data, statusCode: httpResponse.statusCode)
+            }
+        }.resume()
+    }
+
+    // 解析DeepSeek API响应
+    private func parseDeepSeekAPIResponse(data: Data, statusCode: Int) {
+        print("🔍 开始解析DeepSeek API响应")
+
+        // 先打印原始响应
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 原始响应: \(responseString)")
+        }
+
+        // 检查HTTP状态码
+        if statusCode != 200 {
+            print("❌ HTTP错误状态码: \(statusCode)")
+            if let responseString = String(data: data, encoding: .utf8) {
+                showAPIError("API调用失败 (状态码: \(statusCode))\n\n响应: \(responseString)")
+            } else {
+                showAPIError("API调用失败 (状态码: \(statusCode))")
+            }
+            return
+        }
+
+        // 解析JSON
+        do {
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                print("❌ JSON格式无效")
+                showAPIError("服务器响应格式错误")
+                return
+            }
+
+            print("✅ JSON解析成功")
+
+            // 检查API错误
+            if let error = json["error"] as? [String: Any] {
+                let errorMessage = error["message"] as? String ?? "未知错误"
+                let errorType = error["type"] as? String ?? "unknown"
+                print("❌ API返回错误: \(errorMessage) (类型: \(errorType))")
+                showAPIError("DeepSeek API错误: \(errorMessage)")
+                return
+            }
+
+            // 提取AI回复
+            guard let choices = json["choices"] as? [[String: Any]],
+                  let firstChoice = choices.first,
+                  let message = firstChoice["message"] as? [String: Any],
+                  let content = message["content"] as? String else {
+                print("❌ 响应格式错误，无法提取AI回复")
+                showAPIError("响应格式错误，无法提取AI回复内容")
+                return
+            }
+
+            let aiContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            print("✅ 成功提取AI回复: \(aiContent.prefix(50))...")
+
+            // 创建AI回复消息
+            let aiResponse = ChatMessage(
+                id: UUID().uuidString,
+                content: aiContent,
+                isFromUser: false,
+                timestamp: Date(),
+                status: .sent,
+                actions: [],
+                isHistorical: false,
+                aiSource: "DeepSeek"
+            )
+
+            // 添加到消息列表
+            self.messages.append(aiResponse)
+            self.saveHistoryMessages()
+
+            print("✅ DeepSeek API调用完全成功")
+
+        } catch {
+            print("❌ JSON解析失败: \(error)")
+            showAPIError("响应解析失败: \(error.localizedDescription)")
+        }
+    }
+
+    // 显示API错误
+    private func showAPIError(_ errorMessage: String) {
+        print("❌ 显示API错误: \(errorMessage)")
+
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: "❌ API调用失败\n\n\(errorMessage)\n\n请检查：\n• API密钥是否正确\n• 网络连接是否正常\n• API额度是否充足",
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: [],
+            isHistorical: false,
+            aiSource: self.contact.name
+        )
+
+        self.messages.append(errorResponse)
+        self.saveHistoryMessages()
+    }
+
+    // OpenAI API调用
+    private func callOpenAIAPI(message: String, apiKey: String) {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            handleAPIError("无效的API端点")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let requestBody: [String: Any] = [
+            "model": "gpt-4",
+            "messages": [
+                ["role": "user", "content": message]
+            ]
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            handleAPIError("请求数据编码失败")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                if let error = error {
+                    self?.handleAPIError("网络错误: \(error.localizedDescription)")
+                    return
+                }
+
+                guard let data = data else {
+                    self?.handleAPIError("未收到响应数据")
+                    return
+                }
+
+                self?.parseOpenAIResponse(data: data)
+            }
+        }.resume()
+    }
+
+    // 已删除通用API调用 - 不再使用模拟响应
+
+    // 已删除Claude和Qwen API调用 - 当前仅支持DeepSeek和OpenAI
+
+    // 已删除旧的响应解析函数 - 使用新的parseDeepSeekAPIResponse
+
+    // 已删除模板响应函数 - 不再使用模拟回复
+}
+
+// MARK: - 平台热榜内容视图
+struct PlatformHotTrendsContentView: View {
+    let contact: AIContact
+    @ObservedObject private var hotTrendsManager = MockHotTrendsManager.shared
+    @State private var selectedItem: HotTrendItem?
+    @State private var showingItemDetail = false
+
+    private var hotTrends: HotTrendsList? {
+        hotTrendsManager.getHotTrends(for: contact.id)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 平台头部信息
+            PlatformHeaderInfoView(contact: contact)
+
+            // 热榜内容
+            if let trends = hotTrends, !trends.items.isEmpty {
+                PlatformHotTrendsListView(
+                    trends: trends,
+                    onItemTap: { item in
+                        selectedItem = item
+                        handleItemTap(item)
+                    }
+                )
+            } else if hotTrendsManager.isLoading[contact.id] == true {
+                PlatformLoadingView()
+            } else {
+                PlatformEmptyStateView(contact: contact) {
+                    hotTrendsManager.refreshHotTrends(for: contact.id)
+                }
+            }
+        }
+        .refreshable {
+            hotTrendsManager.refreshHotTrends(for: contact.id)
+        }
+        .sheet(isPresented: $showingItemDetail) {
+            if let item = selectedItem {
+                PlatformItemDetailView(item: item, contact: contact)
+            }
+        }
+    }
+
+    private func handleItemTap(_ item: HotTrendItem) {
+        print("🎯 点击热榜项目: \(item.title)")
+
+        // 尝试打开深度链接
+        if let urlString = item.url, let url = URL(string: urlString) {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+                return
+            }
+        }
+
+        // 如果深度链接失败，显示详情页面
+        showingItemDetail = true
+    }
+}
+
+// MARK: - 平台头部信息视图
+struct PlatformHeaderInfoView: View {
+    let contact: AIContact
+    @ObservedObject private var hotTrendsManager = MockHotTrendsManager.shared
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                // 平台图标
+                Image(systemName: contact.avatar)
+                    .font(.system(size: 32))
+                    .foregroundColor(contact.color)
+                    .frame(width: 50, height: 50)
+                    .background(contact.color.opacity(0.1))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(contact.name)
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    Text(contact.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    // 更新时间
+                    if let updateTime = hotTrendsManager.lastUpdateTime[contact.id] {
+                        Text("更新时间: \(updateTime, formatter: timeFormatter)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                // 状态指示器
+                VStack(spacing: 4) {
+                    Circle()
+                        .fill(hotTrendsManager.isLoading[contact.id] == true ? Color.orange : Color.green)
+                        .frame(width: 12, height: 12)
+
+                    Text(hotTrendsManager.isLoading[contact.id] == true ? "更新中" : "已更新")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+
+            Divider()
+        }
+        .background(Color(.systemBackground))
+    }
+
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }
+}
+
+// MARK: - 平台热榜列表视图
+struct PlatformHotTrendsListView: View {
+    let trends: HotTrendsList
+    let onItemTap: (HotTrendItem) -> Void
+
+    var body: some View {
+        List(trends.items) { item in
+            PlatformHotTrendItemRow(item: item) {
+                onItemTap(item)
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        }
+        .listStyle(PlainListStyle())
+    }
+}
+
+// MARK: - 平台热榜项目行视图
+struct PlatformHotTrendItemRow: View {
+    let item: HotTrendItem
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // 排名
+                Text(item.displayRank)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(item.isTopThree ? .orange : .secondary)
+                    .frame(width: 30, alignment: .center)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    // 标题
+                    Text(item.title)
+                        .font(.headline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+
+                    // 描述
+                    if let description = item.description {
+                        Text(description)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    // 底部信息
+                    HStack {
+                        if let category = item.category {
+                            Text(category)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color(.systemGray5))
+                                .cornerRadius(4)
+                        }
+
+                        Spacer()
+
+                        if let hotValue = item.hotValue {
+                            Text(hotValue)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // 箭头指示器
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - 平台加载视图
+struct PlatformLoadingView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+
+            Text("正在获取热榜数据...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - 平台空状态视图
+struct PlatformEmptyStateView: View {
+    let contact: AIContact
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+
+            Text("暂无热榜数据")
+                .font(.headline)
+
+            Text("请检查网络连接或稍后重试")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("重新加载") {
+                onRetry()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+// MARK: - 平台项目详情视图
+struct PlatformItemDetailView: View {
+    let item: HotTrendItem
+    let contact: AIContact
+    @Environment(\.presentationMode) var presentationMode
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 排名和热度
+                    HStack {
+                        Text(item.displayRank)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(item.isTopThree ? .orange : .secondary)
+
+                        Spacer()
+
+                        if let hotValue = item.hotValue {
+                            Text(hotValue)
+                                .font(.headline)
+                                .foregroundColor(.orange)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.orange.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                    }
+
+                    // 标题
+                    Text(item.title)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .lineLimit(nil)
+
+                    // 描述
+                    if let description = item.description {
+                        Text(description)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .lineLimit(nil)
+                    }
+
+                    // 平台和分类信息
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("来源:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            HStack(spacing: 4) {
+                                Image(systemName: contact.avatar)
+                                    .foregroundColor(contact.color)
+                                Text(contact.name)
+                            }
+                            .font(.subheadline)
+                        }
+
+                        if let category = item.category {
+                            HStack {
+                                Text("分类:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+
+                                Text(category)
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color(.systemGray5))
+                                    .cornerRadius(4)
+                            }
+                        }
+
+                        HStack {
+                            Text("时间:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Text(item.timestamp, formatter: detailTimeFormatter)
+                                .font(.subheadline)
+                        }
+                    }
+
+                    // 操作按钮
+                    VStack(spacing: 12) {
+                        if let urlString = item.url, let url = URL(string: urlString) {
+                            Button(action: {
+                                UIApplication.shared.open(url)
+                            }) {
+                                HStack {
+                                    Image(systemName: "link")
+                                    Text("打开原链接")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                            }
+                        }
+
+                        Button(action: {
+                            shareContent()
+                        }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("分享")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(.systemGray5))
+                            .foregroundColor(.primary)
+                            .cornerRadius(10)
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationTitle("热榜详情")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("关闭") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+
+    private var detailTimeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }
+
+    private func shareContent() {
+        let shareText = "\(item.title)\n\n\(item.description ?? "")\n\n来自: \(contact.name)"
+        let activityVC = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(activityVC, animated: true)
+        }
     }
 }
 
@@ -122,12 +983,13 @@ struct ChatView: View {
 
 struct ChatMessageRow: View {
     let message: ChatMessage
-    
+    @ObservedObject private var hotTrendsManager = MockHotTrendsManager.shared
+
     var body: some View {
         HStack {
             if message.isFromUser {
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(message.content)
                         .padding(.horizontal, 16)
@@ -136,29 +998,72 @@ struct ChatMessageRow: View {
                         .foregroundColor(.white)
                         .cornerRadius(18)
                         .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
-                    
+
                     Text(formatTime(message.timestamp))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // 消息内容
                     Text(message.content)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Color(.systemGray5))
                         .foregroundColor(.primary)
                         .cornerRadius(18)
-                        .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .leading)
-                    
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .frame(maxWidth: UIScreen.main.bounds.width * 0.8, alignment: .leading)
+
+                    // 如果是平台消息且有热榜数据，显示热榜预览
+                    if let aiSource = message.aiSource,
+                       let trends = hotTrendsManager.getHotTrends(for: getPlatformId(from: aiSource)),
+                       !trends.items.isEmpty {
+                        HotTrendsPreviewCard(trends: trends, platformName: aiSource)
+                    }
+
+                    // 消息操作按钮
+                    if !message.actions.isEmpty {
+                        MessageActionsView(actions: message.actions, platformId: getPlatformId(from: message.aiSource))
+                    }
+
+                    // 时间和来源
+                    HStack {
+                        Text(formatTime(message.timestamp))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+
+                        if let aiSource = message.aiSource {
+                            Text("• \(aiSource)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
-                
+
                 Spacer()
             }
         }
+    }
+
+    private func getPlatformId(from aiSource: String?) -> String {
+        guard let source = aiSource else { return "" }
+
+        // 将AI来源名称映射到平台ID
+        let platformMapping: [String: String] = [
+            "抖音": "douyin",
+            "小红书": "xiaohongshu",
+            "公众号": "wechat_mp",
+            "视频号": "weixin_channels",
+            "今日头条": "toutiao",
+            "B站": "bilibili",
+            "油管": "youtube",
+            "即刻": "jike",
+            "百家号": "baijiahao",
+            "西瓜": "xigua",
+            "喜马拉雅": "ximalaya"
+        ]
+
+        return platformMapping[source] ?? source
     }
     
     private func formatTime(_ date: Date) -> String {
@@ -183,5 +1088,192 @@ struct ChatView_Previews: PreviewProvider {
                 supportedFeatures: [.textGeneration]
             ))
         }
+    }
+}
+
+// MARK: - 热榜预览卡片
+struct HotTrendsPreviewCard: View {
+    let trends: HotTrendsList
+    let platformName: String
+    @State private var showingFullList = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 卡片头部
+            HStack {
+                Text("🔥 \(platformName) 热榜")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Text("\(trends.items.count)条")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color(.systemGray5))
+                    .cornerRadius(4)
+            }
+
+            // 热榜预览（显示前3条）
+            VStack(spacing: 8) {
+                ForEach(trends.items.prefix(3)) { item in
+                    HotTrendPreviewRow(item: item)
+                }
+            }
+
+            // 查看更多按钮
+            if trends.items.count > 3 {
+                Button(action: {
+                    showingFullList = true
+                }) {
+                    HStack {
+                        Text("查看全部 \(trends.items.count) 条热榜")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .sheet(isPresented: $showingFullList) {
+            PlatformHotTrendsFullListView(trends: trends, platformName: platformName)
+        }
+    }
+}
+
+// MARK: - 热榜预览行
+struct HotTrendPreviewRow: View {
+    let item: HotTrendItem
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // 排名
+            Text(item.displayRank)
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundColor(item.isTopThree ? .orange : .secondary)
+                .frame(width: 20, alignment: .center)
+
+            // 标题
+            Text(item.title)
+                .font(.subheadline)
+                .lineLimit(1)
+                .foregroundColor(.primary)
+
+            Spacer()
+
+            // 热度值
+            if let hotValue = item.hotValue {
+                Text(hotValue)
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - 消息操作按钮视图
+struct MessageActionsView: View {
+    let actions: [MessageAction]
+    let platformId: String?
+    @ObservedObject private var hotTrendsManager = MockHotTrendsManager.shared
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(actions) { action in
+                Button(action: {
+                    handleAction(action)
+                }) {
+                    Text(action.title)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                }
+            }
+
+            Spacer()
+        }
+    }
+
+    private func handleAction(_ action: MessageAction) {
+        switch action.type {
+        case .refresh:
+            if let platformId = platformId {
+                hotTrendsManager.refreshHotTrends(for: platformId)
+            }
+        case .viewContent:
+            // 显示热榜内容
+            if let platformId = platformId {
+                NotificationCenter.default.post(
+                    name: .showPlatformHotTrends,
+                    object: platformId
+                )
+            }
+        case .settings:
+            // 打开设置
+            print("打开设置")
+        case .share:
+            // 分享内容
+            print("分享内容")
+        case .openLink:
+            // 打开链接
+            print("打开链接")
+        }
+    }
+}
+
+// MARK: - 平台热榜完整列表视图
+struct PlatformHotTrendsFullListView: View {
+    let trends: HotTrendsList
+    let platformName: String
+    @Environment(\.presentationMode) var presentationMode
+
+    var body: some View {
+        NavigationView {
+            List(trends.items) { item in
+                PlatformHotTrendItemRow(item: item) {
+                    handleItemTap(item)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+            .navigationTitle("\(platformName) 热榜")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("关闭") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+
+    private func handleItemTap(_ item: HotTrendItem) {
+        // 尝试打开深度链接
+        if let urlString = item.url, let url = URL(string: urlString) {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+                presentationMode.wrappedValue.dismiss()
+                return
+            }
+        }
+
+        // 如果无法打开链接，显示详情
+        print("显示热榜项目详情: \(item.title)")
     }
 }

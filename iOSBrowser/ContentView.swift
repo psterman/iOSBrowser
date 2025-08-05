@@ -3626,6 +3626,7 @@ enum AIFeature: String, CaseIterable {
     case translation = "翻译"
     case summarization = "摘要"
     case search = "搜索"
+    case hotTrends = "热榜推送"  // 新增：热榜功能
 }
 
 struct ChatMessage: Identifiable, Codable {
@@ -3637,6 +3638,10 @@ struct ChatMessage: Identifiable, Codable {
     var actions: [MessageAction]
     var isHistorical: Bool = false
     var aiSource: String? = nil // 标识来自哪个AI
+    var isStreaming: Bool = false // 是否正在流式接收
+    var avatar: String? = nil // 头像
+    var isFavorited: Bool = false // 是否收藏
+    var isEdited: Bool = false // 是否已编辑
 }
 
 enum MessageStatus: String, Codable {
@@ -3650,6 +3655,22 @@ struct MessageAction: Identifiable, Codable {
     let id: String
     let title: String
     let action: String
+    let type: MessageActionType
+
+    init(id: String, title: String, type: MessageActionType) {
+        self.id = id
+        self.title = title
+        self.action = title
+        self.type = type
+    }
+}
+
+enum MessageActionType: String, Codable {
+    case refresh = "refresh"
+    case settings = "settings"
+    case viewContent = "view_content"
+    case share = "share"
+    case openLink = "open_link"
 }
 
 // MARK: - API配置管理器已移至APIConfigManager.swift
@@ -3707,27 +3728,49 @@ struct ChatView: View {
             )
 
             // 聊天消息列表
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(messages) { message in
-                        ChatMessageRow(message: message)
-                    }
-
-                    if isLoading {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .scaleEffect(0.8)
-                            Text("AI正在思考...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(messages) { message in
+                            ChatMessageRow(message: message)
+                                .id(message.id)
                         }
-                        .padding()
+
+                        if isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("AI正在思考...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding()
+                            .id("loading")
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                }
+                .onChange(of: messages.count) { _ in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        if let lastMessage = messages.last {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if let lastMessage = messages.last {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                        }
+                    }
+                }
             }
 
             Divider()
@@ -3766,6 +3809,31 @@ struct ChatView: View {
                     }
                 }
         )
+        .onAppear {
+            loadHistoryMessages()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .editMessage)) { notification in
+            if let data = notification.object as? [String: String],
+               let messageId = data["id"],
+               let newContent = data["content"] {
+                editMessage(id: messageId, newContent: newContent)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleFavorite)) { notification in
+            if let messageId = notification.object as? String {
+                toggleMessageFavorite(id: messageId)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .deleteMessage)) { notification in
+            if let messageId = notification.object as? String {
+                deleteMessage(id: messageId)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .forwardMessage)) { notification in
+            if let content = notification.object as? String {
+                forwardMessage(content: content)
+            }
+        }
     }
 
     private func sendMessage() {
@@ -3777,7 +3845,13 @@ struct ChatView: View {
             isFromUser: true,
             timestamp: Date(),
             status: .sent,
-            actions: []
+            actions: [],
+            isHistorical: false,
+            aiSource: nil,
+            isStreaming: false,
+            avatar: getUserAvatar(),
+            isFavorited: false,
+            isEdited: false
         )
 
         messages.append(userMessage)
@@ -3785,72 +3859,596 @@ struct ChatView: View {
         messageText = ""
         isLoading = true
 
-        // 模拟AI响应
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            let aiResponse = ChatMessage(
-                id: UUID().uuidString,
-                content: generateAIResponse(for: currentMessage),
-                isFromUser: false,
-                timestamp: Date(),
-                status: .sent,
-                actions: []
-            )
-            messages.append(aiResponse)
-            isLoading = false
+        // 保存用户消息到历史记录
+        saveHistoryMessages()
+
+        // 调用真实的AI API
+        callAIAPI(message: currentMessage)
+    }
+
+    private func callAIAPI(message: String) {
+        print("🔍 开始API调用检查...")
+        print("🔍 联系人名称: '\(contact.name)'")
+        print("🔍 联系人ID: '\(contact.id)'")
+
+        // 检查API密钥
+        guard let apiKey = APIConfigManager.shared.getAPIKey(for: contact.id) else {
+            showAPIKeyMissingError()
+            return
+        }
+
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            showAPIKeyMissingError()
+            return
+        }
+
+        print("✅ 找到API密钥: \(apiKey.prefix(10))...")
+
+        // 根据联系人ID调用对应的API
+        if contact.id == "deepseek" {
+            print("🎯 确认调用DeepSeek API")
+            callDeepSeekAPIDirectly(message: message, apiKey: apiKey)
+        } else if contact.id == "openai" {
+            print("🎯 确认调用OpenAI API")
+            callOpenAIAPIDirectly(message: message, apiKey: apiKey)
+        } else {
+            showUnsupportedServiceError()
         }
     }
 
-    private func generateAIResponse(for message: String) -> String {
-        let responses = [
-            "我理解您的问题，让我来帮助您。",
-            "这是一个很好的问题，我来为您详细解答。",
-            "根据您的描述，我建议您可以尝试以下方法。",
-            "感谢您的提问，我很乐意为您提供帮助。",
-            "这个问题很有意思，让我来分析一下。"
+    private func callDeepSeekAPIDirectly(message: String, apiKey: String) {
+        print("🚀 开始DeepSeek API流式调用")
+
+        guard let url = URL(string: "https://api.deepseek.com/chat/completions") else {
+            showAPIError("无效的API地址")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let requestBody: [String: Any] = [
+            "model": "deepseek-chat",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7,
+            "stream": true // 启用流式响应
         ]
-        return responses.randomElement() ?? "我正在思考您的问题，请稍等。"
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("请求数据编码失败: \(error.localizedDescription)")
+            return
+        }
+
+        // 创建流式响应的AI消息
+        let streamingMessage = ChatMessage(
+            id: UUID().uuidString,
+            content: "",
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sending,
+            actions: [],
+            isHistorical: false,
+            aiSource: contact.name,
+            isStreaming: true,
+            avatar: getAIAvatar(),
+            isFavorited: false,
+            isEdited: false
+        )
+
+        messages.append(streamingMessage)
+        let messageIndex = messages.count - 1
+
+        // 使用URLSessionDataTask处理流式响应
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.showAPIError("网络连接失败: \(error.localizedDescription)")
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 HTTP状态码: \(httpResponse.statusCode)")
+
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("API调用失败，状态码: \(httpResponse.statusCode)")
+                        return
+                    }
+                }
+
+                guard let data = data else {
+                    self.showAPIError("未收到响应数据")
+                    return
+                }
+
+                self.parseStreamingResponse(data: data, messageIndex: messageIndex)
+            }
+        }
+
+        task.resume()
+    }
+
+    private func parseStreamingResponse(data: Data, messageIndex: Int) {
+        guard messageIndex < messages.count else { return }
+
+        let dataString = String(data: data, encoding: .utf8) ?? ""
+        let lines = dataString.components(separatedBy: .newlines)
+
+        for line in lines {
+            if line.hasPrefix("data: ") {
+                let jsonString = String(line.dropFirst(6))
+
+                if jsonString.trimmingCharacters(in: .whitespacesAndNewlines) == "[DONE]" {
+                    // 流式响应结束
+                    messages[messageIndex].isStreaming = false
+                    messages[messageIndex].status = .sent
+                    isLoading = false
+                    saveHistoryMessages()
+                    print("✅ 流式响应完成")
+                    return
+                }
+
+                guard let jsonData = jsonString.data(using: .utf8),
+                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                      let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first,
+                      let delta = firstChoice["delta"] as? [String: Any],
+                      let content = delta["content"] as? String else {
+                    continue
+                }
+
+                // 逐字添加内容
+                messages[messageIndex].content += content
+
+                // 触发UI更新
+                DispatchQueue.main.async {
+                    // UI会自动更新，因为messages是@State
+                }
+            }
+        }
+    }
+
+    private func getAIAvatar() -> String {
+        switch contact.id {
+        case "deepseek":
+            return "brain.head.profile"
+        case "openai":
+            return "bubble.left.and.bubble.right.fill"
+        case "claude":
+            return "c.circle.fill"
+        case "gemini":
+            return "diamond.fill"
+        default:
+            return "brain.head.profile"
+        }
+    }
+
+    private func getUserAvatar() -> String {
+        return "person.circle.fill"
+    }
+
+    private func callOpenAIAPIDirectly(message: String, apiKey: String) {
+        print("🚀 开始OpenAI API直接调用")
+
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            showAPIError("无效的API地址")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let requestBody: [String: Any] = [
+            "model": "gpt-4o",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("请求数据编码失败: \(error.localizedDescription)")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.showAPIError("网络连接失败: \(error.localizedDescription)")
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 HTTP状态码: \(httpResponse.statusCode)")
+
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("API调用失败，状态码: \(httpResponse.statusCode)")
+                        return
+                    }
+                }
+
+                guard let data = data else {
+                    self.showAPIError("未收到响应数据")
+                    return
+                }
+
+                self.parseDeepSeekAPIResponse(data: data) // OpenAI和DeepSeek响应格式相同
+            }
+        }.resume()
+    }
+
+    private func parseDeepSeekAPIResponse(data: Data) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                // 检查是否有错误
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("API错误: \(message)")
+                    return
+                }
+
+                // 解析正常响应
+                guard let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first,
+                      let message = firstChoice["message"] as? [String: Any],
+                      let content = message["content"] as? String else {
+                    showAPIError("响应格式错误，无法提取AI回复内容")
+                    return
+                }
+
+                print("✅ 成功提取AI回复: \(content.prefix(50))...")
+
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: []
+                )
+
+                self.messages.append(aiResponse)
+                self.saveHistoryMessages() // 保存AI响应
+                self.isLoading = false
+
+                print("✅ \(contact.name) API调用完全成功")
+            }
+        } catch {
+            showAPIError("响应解析失败: \(error.localizedDescription)")
+        }
+    }
+
+    private func showAPIKeyMissingError() {
+        isLoading = false
+
+        let errorMessage = """
+        ❌ 未配置API密钥
+
+        请按以下步骤配置：
+        1. 点击右上角设置按钮
+        2. 找到\(contact.name)配置
+        3. 输入有效的API密钥
+        4. 保存后重新尝试
+        """
+
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: errorMessage,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: []
+        )
+
+        messages.append(errorResponse)
+        saveHistoryMessages()
+
+        print("❌ API密钥未配置: \(contact.name)")
+    }
+
+    private func showAPIError(_ errorMessage: String) {
+        isLoading = false
+
+        let fullErrorMessage = """
+        ❌ API调用失败
+
+        \(errorMessage)
+
+        请检查：
+        • API密钥是否正确
+        • 网络连接是否正常
+        • API额度是否充足
+        """
+
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: fullErrorMessage,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: []
+        )
+
+        messages.append(errorResponse)
+        saveHistoryMessages()
+
+        print("❌ API错误: \(errorMessage)")
+    }
+
+    private func showUnsupportedServiceError() {
+        isLoading = false
+
+        let errorMessage = """
+        ❌ 暂不支持的AI服务
+
+        当前仅支持：
+        • DeepSeek
+        • OpenAI
+
+        请选择支持的AI服务进行对话。
+        """
+
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: errorMessage,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: []
+        )
+
+        messages.append(errorResponse)
+        saveHistoryMessages()
+
+        print("❌ 不支持的AI服务: \(contact.name)")
+    }
+
+    // MARK: - 历史记录管理
+    private func saveHistoryMessages() {
+        let key = "chat_history_\(contact.id)"
+        if let data = try? JSONEncoder().encode(messages) {
+            UserDefaults.standard.set(data, forKey: key)
+            print("💾 已保存\(contact.name)聊天历史: \(messages.count)条消息")
+        }
+    }
+
+    private func loadHistoryMessages() {
+        let key = "chat_history_\(contact.id)"
+        if let data = UserDefaults.standard.data(forKey: key),
+           let savedMessages = try? JSONDecoder().decode([ChatMessage].self, from: data) {
+            messages = savedMessages
+            print("📚 已加载\(contact.name)聊天历史: \(messages.count)条消息")
+        }
+    }
+
+    // 滚动到底部功能已内联到调用处
+
+    // MARK: - 消息操作实现
+    private func editMessage(id: String, newContent: String) {
+        if let index = messages.firstIndex(where: { $0.id == id }) {
+            messages[index].content = newContent
+            messages[index].isEdited = true
+            saveHistoryMessages()
+        }
+    }
+
+    private func toggleMessageFavorite(id: String) {
+        if let index = messages.firstIndex(where: { $0.id == id }) {
+            messages[index].isFavorited.toggle()
+            saveHistoryMessages()
+        }
+    }
+
+    private func deleteMessage(id: String) {
+        messages.removeAll { $0.id == id }
+        saveHistoryMessages()
+    }
+
+    private func forwardMessage(content: String) {
+        // 将消息内容设置到输入框
+        messageText = content
     }
 }
 
 struct ChatMessageRow: View {
     let message: ChatMessage
+    @State private var showingActions = false
+    @State private var showingEditDialog = false
+    @State private var editedContent = ""
 
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 12) {
             if message.isFromUser {
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(message.content)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.themeGreen)
-                        .foregroundColor(.white)
-                        .cornerRadius(18)
-                        .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
+                // 用户消息
+                VStack(alignment: .trailing, spacing: 8) {
+                    HStack(alignment: .bottom, spacing: 8) {
+                        VStack(alignment: .trailing, spacing: 4) {
+                            // 消息内容
+                            VStack(alignment: .leading, spacing: 8) {
+                                SimpleMarkdownText(content: cleanContent(message.content), isFromUser: message.isFromUser)
 
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                                if message.isStreaming {
+                                    HStack {
+                                        ProgressView()
+                                            .scaleEffect(0.6)
+                                        Text("正在输入...")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.themeGreen)
+                            .cornerRadius(18)
+                            .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .trailing)
+                            .onLongPressGesture {
+                                showingActions = true
+                            }
+
+                            // 时间和状态
+                            HStack(spacing: 4) {
+                                if message.isEdited {
+                                    Text("已编辑")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Text(formatTime(message.timestamp))
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+
+                                if message.isFavorited {
+                                    Image(systemName: "heart.fill")
+                                        .font(.caption2)
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+
+                        // 用户头像
+                        Image(systemName: message.avatar ?? "person.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.themeGreen)
+                            .frame(width: 32, height: 32)
+                    }
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(message.content)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color(.systemGray5))
-                        .foregroundColor(.primary)
-                        .cornerRadius(18)
-                        .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .leading)
+                // AI消息
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .bottom, spacing: 8) {
+                        // AI头像
+                        Image(systemName: message.avatar ?? "brain.head.profile")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                            .frame(width: 32, height: 32)
 
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            // AI名称
+                            if let aiSource = message.aiSource {
+                                Text(aiSource)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            // 消息内容
+                            VStack(alignment: .leading, spacing: 8) {
+                                SimpleMarkdownText(content: cleanContent(message.content), isFromUser: false)
+
+                                if message.isStreaming {
+                                    HStack {
+                                        ProgressView()
+                                            .scaleEffect(0.6)
+                                        Text("正在输入...")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(.systemGray5))
+                            .cornerRadius(18)
+                            .frame(maxWidth: UIScreen.main.bounds.width * 0.7, alignment: .leading)
+                            .onLongPressGesture {
+                                showingActions = true
+                            }
+
+                            // 时间和状态
+                            HStack(spacing: 4) {
+                                if message.isEdited {
+                                    Text("已编辑")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Text(formatTime(message.timestamp))
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+
+                                if message.isFavorited {
+                                    Image(systemName: "heart.fill")
+                                        .font(.caption2)
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+
+                        Spacer()
+                    }
                 }
-
-                Spacer()
             }
         }
+        .actionSheet(isPresented: $showingActions) {
+            ActionSheet(
+                title: Text("消息操作"),
+                buttons: [
+                    .default(Text("复制")) {
+                        copyMessage()
+                    },
+                    .default(Text("编辑")) {
+                        startEditing()
+                    },
+                    .default(Text(message.isFavorited ? "取消收藏" : "收藏")) {
+                        toggleFavorite()
+                    },
+                    .default(Text("分享")) {
+                        shareMessage()
+                    },
+                    .default(Text("转发")) {
+                        forwardMessage()
+                    },
+                    .destructive(Text("删除")) {
+                        deleteMessage()
+                    },
+                    .cancel()
+                ]
+            )
+        }
+        .alert("编辑消息", isPresented: $showingEditDialog) {
+            TextField("消息内容", text: $editedContent)
+            Button("取消", role: .cancel) { }
+            Button("保存") {
+                saveEdit()
+            }
+        }
+    }
+
+    private func cleanContent(_ content: String) -> String {
+        // 移除过多的表情符号和符号堆积
+        var cleaned = content
+
+        // 移除连续的表情符号（保留单个）
+        let emojiPattern = #"[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]{2,}"#
+        cleaned = cleaned.replacingOccurrences(of: emojiPattern, with: "", options: .regularExpression)
+
+        // 移除过多的符号重复
+        let symbolPattern = #"[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\?]{3,}"#
+        cleaned = cleaned.replacingOccurrences(of: symbolPattern, with: "", options: .regularExpression)
+
+        // 移除多余的空行
+        cleaned = cleaned.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func formatTime(_ date: Date) -> String {
@@ -3858,11 +4456,61 @@ struct ChatMessageRow: View {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
+
+    // MARK: - 消息操作
+    private func copyMessage() {
+        UIPasteboard.general.string = message.content
+    }
+
+    private func startEditing() {
+        editedContent = message.content
+        showingEditDialog = true
+    }
+
+    private func saveEdit() {
+        // 这里需要通过回调或通知来更新消息
+        NotificationCenter.default.post(
+            name: .editMessage,
+            object: ["id": message.id, "content": editedContent]
+        )
+    }
+
+    private func toggleFavorite() {
+        NotificationCenter.default.post(
+            name: .toggleFavorite,
+            object: message.id
+        )
+    }
+
+    private func shareMessage() {
+        let shareText = message.content
+        let activityVC = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController?.present(activityVC, animated: true)
+        }
+    }
+
+    private func forwardMessage() {
+        NotificationCenter.default.post(
+            name: .forwardMessage,
+            object: message.content
+        )
+    }
+
+    private func deleteMessage() {
+        NotificationCenter.default.post(
+            name: .deleteMessage,
+            object: message.id
+        )
+    }
 }
 
 // MARK: - SimpleAIChatView定义
 struct SimpleAIChatView: View {
     @StateObject private var apiManager = APIConfigManager.shared
+
     @State private var showingDirectChat = false
     @State private var selectedAssistantId = "deepseek"
     @State private var currentContact: AIContact?
@@ -3872,6 +4520,10 @@ struct SimpleAIChatView: View {
     @State private var searchText = ""
     @State private var showDetailedInfo = false
     @State private var showingMultiAIChat = false
+    @State private var showingContactsManagement = false
+    @StateObject private var contactsManager = SimpleContactsManager.shared
+
+
 
     // AI联系人列表
     @State private var contacts: [AIContact] = [
@@ -3901,10 +4553,37 @@ struct SimpleAIChatView: View {
         AIContact(id: "dalle", name: "DALL-E", description: "OpenAI图像生成模型", model: "dall-e-3", avatar: "photo.circle.fill", isOnline: true, apiEndpoint: "https://api.openai.com/v1", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .pink),
         AIContact(id: "midjourney", name: "Midjourney", description: "专业AI绘画工具", model: "midjourney-v6", avatar: "paintbrush.fill", isOnline: true, apiEndpoint: "https://api.midjourney.com", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .purple),
         AIContact(id: "stablediffusion", name: "Stable Diffusion", description: "开源AI图像生成", model: "stable-diffusion-xl", avatar: "camera.macro.circle.fill", isOnline: true, apiEndpoint: "https://api.stability.ai", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .orange),
+
+        // 📱 平台热榜联系人
+        AIContact(id: "douyin", name: "抖音", description: "短视频热门内容推送", model: "platform-douyin", avatar: "music.note", isOnline: true, apiEndpoint: "https://www.douyin.com/hot", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .black),
+        AIContact(id: "xiaohongshu", name: "小红书", description: "生活方式热门分享", model: "platform-xiaohongshu", avatar: "heart.fill", isOnline: true, apiEndpoint: "https://www.xiaohongshu.com/explore", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
+        AIContact(id: "wechat_mp", name: "公众号", description: "微信公众号热文推送", model: "platform-wechat", avatar: "bubble.left.and.bubble.right.fill", isOnline: true, apiEndpoint: nil, requiresApiKey: false, supportedFeatures: [.hotTrends], color: .green),
+        AIContact(id: "weixin_channels", name: "视频号", description: "微信视频号热门内容", model: "platform-channels", avatar: "video.fill", isOnline: true, apiEndpoint: nil, requiresApiKey: false, supportedFeatures: [.hotTrends], color: .green),
+        AIContact(id: "toutiao", name: "今日头条", description: "新闻资讯热点推送", model: "platform-toutiao", avatar: "newspaper.fill", isOnline: true, apiEndpoint: "https://www.toutiao.com/hot-event/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
+        AIContact(id: "bilibili", name: "B站", description: "哔哩哔哩热门视频", model: "platform-bilibili", avatar: "tv.fill", isOnline: true, apiEndpoint: "https://www.bilibili.com/ranking", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .pink),
+        AIContact(id: "youtube", name: "油管", description: "YouTube热门视频", model: "platform-youtube", avatar: "play.rectangle.fill", isOnline: true, apiEndpoint: "https://www.youtube.com/feed/trending", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
+        AIContact(id: "jike", name: "即刻", description: "即刻热门动态", model: "platform-jike", avatar: "bolt.fill", isOnline: true, apiEndpoint: "https://web.okjike.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .yellow),
+        AIContact(id: "baijiahao", name: "百家号", description: "百度百家号热文", model: "platform-baijiahao", avatar: "doc.text.fill", isOnline: true, apiEndpoint: "https://baijiahao.baidu.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .blue),
+        AIContact(id: "xigua", name: "西瓜", description: "西瓜视频热门内容", model: "platform-xigua", avatar: "play.circle.fill", isOnline: true, apiEndpoint: "https://www.ixigua.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .green),
+        AIContact(id: "ximalaya", name: "喜马拉雅", description: "音频内容热门推荐", model: "platform-ximalaya", avatar: "waveform", isOnline: true, apiEndpoint: "https://www.ximalaya.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .orange)
     ]
 
+    // 已启用的联系人列表
+    var enabledContacts: [AIContact] {
+        return contacts.filter { contact in
+            // 平台联系人：检查是否在联系人管理器中启用
+            if contact.supportedFeatures.contains(.hotTrends) {
+                return contactsManager.isContactEnabled(contact.id)
+            }
+            // AI助手：需要有API配置且在联系人管理器中启用
+            else {
+                return apiManager.hasAPIKey(for: contact.id) && contactsManager.isContactEnabled(contact.id)
+            }
+        }
+    }
+
     var filteredContacts: [AIContact] {
-        let filtered = contacts.filter { contact in
+        let filtered = enabledContacts.filter { contact in
             !apiManager.isHidden(contact.id) &&
             (searchText.isEmpty || contact.name.localizedCaseInsensitiveContains(searchText) || contact.description.localizedCaseInsensitiveContains(searchText))
         }
@@ -3947,7 +4626,7 @@ struct SimpleAIChatView: View {
                     )
                     .navigationBarHidden(true)
                 } else {
-                    // 显示AI联系人列表
+                    // 显示AI联系人列表（包含平台联系人）
                     AIContactsListView()
                 }
             }
@@ -3958,6 +4637,7 @@ struct SimpleAIChatView: View {
                 startDirectChat(with: assistantId)
             }
         }
+
     }
 
     // AI联系人列表视图
@@ -3990,6 +4670,17 @@ struct SimpleAIChatView: View {
                 }
 
                 Spacer()
+
+                Button(action: {
+                    showingContactsManagement = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.circle")
+                        Text("管理")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.themeGreen)
+                }
 
                 Button(action: {
                     showingAPIConfig = true
@@ -4039,6 +4730,9 @@ struct SimpleAIChatView: View {
             if let contact = selectedContactForAPI {
                 SingleContactAPIConfigView(contact: contact)
             }
+        }
+        .sheet(isPresented: $showingContactsManagement) {
+            SimpleContactsManagementView()
         }
     }
 
@@ -4366,7 +5060,7 @@ struct ContactRow: View {
                         .frame(width: 8, height: 8)
                 }
 
-                Text(contact.description)
+                Text(getLastMessagePreview(for: contact.id))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(showDetailedInfo ? nil : 1)
@@ -4427,6 +5121,234 @@ struct ContactRow: View {
             }
         }
     }
+
+    private func getLastMessagePreview(for contactId: String) -> String {
+        let key = "chat_history_\(contactId)"
+        if let data = UserDefaults.standard.data(forKey: key),
+           let savedMessages = try? JSONDecoder().decode([ChatMessage].self, from: data),
+           let lastMessage = savedMessages.last {
+
+            // 清理内容并截取预览
+            let cleanedContent = lastMessage.content
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if cleanedContent.count > 50 {
+                return String(cleanedContent.prefix(50)) + "..."
+            } else {
+                return cleanedContent.isEmpty ? "暂无对话" : cleanedContent
+            }
+        }
+
+        return "暂无对话"
+    }
+}
+
+// MARK: - 简化Markdown文本组件
+struct SimpleMarkdownText: View {
+    let content: String
+    let isFromUser: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(parseSimpleMarkdown(content), id: \.id) { element in
+                renderMarkdownElement(element)
+            }
+        }
+    }
+
+    private func renderMarkdownElement(_ element: SimpleMarkdownElement) -> some View {
+        Group {
+            switch element.type {
+            case .heading:
+                Text(element.content)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(isFromUser ? .white : .primary)
+
+            case .code:
+                Text(element.content)
+                    .font(.system(.body, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.systemGray5))
+                    .cornerRadius(4)
+                    .foregroundColor(.primary)
+
+            case .codeBlock:
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("代码")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: {
+                            UIPasteboard.general.string = element.content
+                        }) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        Text(element.content)
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 8)
+                    }
+                }
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+
+            case .list:
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(element.listItems, id: \.self) { item in
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("•")
+                                .foregroundColor(isFromUser ? .white : .primary)
+                            Text(item)
+                                .foregroundColor(isFromUser ? .white : .primary)
+                            Spacer()
+                        }
+                    }
+                }
+
+            case .text:
+                Text(element.content)
+                    .foregroundColor(isFromUser ? .white : .primary)
+            }
+        }
+    }
+}
+
+struct SimpleMarkdownElement {
+    let id = UUID()
+    let type: SimpleMarkdownType
+    let content: String
+    let listItems: [String]
+
+    init(type: SimpleMarkdownType, content: String, listItems: [String] = []) {
+        self.type = type
+        self.content = content
+        self.listItems = listItems
+    }
+}
+
+enum SimpleMarkdownType {
+    case heading, code, codeBlock, list, text
+}
+
+func parseSimpleMarkdown(_ content: String) -> [SimpleMarkdownElement] {
+    var elements: [SimpleMarkdownElement] = []
+    let lines = content.components(separatedBy: .newlines)
+    var i = 0
+
+    while i < lines.count {
+        let line = lines[i].trimmingCharacters(in: .whitespaces)
+
+        if line.isEmpty {
+            i += 1
+            continue
+        }
+
+        // 代码块
+        if line.hasPrefix("```") {
+            var codeContent = ""
+            i += 1
+
+            while i < lines.count && !lines[i].hasPrefix("```") {
+                codeContent += lines[i] + "\n"
+                i += 1
+            }
+
+            elements.append(SimpleMarkdownElement(
+                type: .codeBlock,
+                content: codeContent.trimmingCharacters(in: .newlines)
+            ))
+            i += 1
+            continue
+        }
+
+        // 标题
+        if line.hasPrefix("#") {
+            let content = line.replacingOccurrences(of: #"^#+\s*"#, with: "", options: .regularExpression)
+            elements.append(SimpleMarkdownElement(type: .heading, content: content))
+        }
+        // 列表
+        else if line.hasPrefix("- ") || line.hasPrefix("* ") {
+            var listItems: [String] = []
+            while i < lines.count && (lines[i].hasPrefix("- ") || lines[i].hasPrefix("* ")) {
+                let item = String(lines[i].dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                listItems.append(item)
+                i += 1
+            }
+            elements.append(SimpleMarkdownElement(type: .list, content: "", listItems: listItems))
+            continue
+        }
+        // 内联代码处理
+        else if line.contains("`") {
+            let processedElements = processInlineCode(line)
+            elements.append(contentsOf: processedElements)
+        }
+        // 普通文本
+        else {
+            elements.append(SimpleMarkdownElement(type: .text, content: line))
+        }
+
+        i += 1
+    }
+
+    return elements
+}
+
+func processInlineCode(_ text: String) -> [SimpleMarkdownElement] {
+    var elements: [SimpleMarkdownElement] = []
+    let codePattern = #"`([^`]+)`"#
+
+    if let regex = try? NSRegularExpression(pattern: codePattern) {
+        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+
+        if !matches.isEmpty {
+            var lastEnd = text.startIndex
+
+            for match in matches {
+                let range = Range(match.range, in: text)!
+                let codeRange = Range(match.range(at: 1), in: text)!
+
+                // 添加代码前的文本
+                if lastEnd < range.lowerBound {
+                    let beforeText = String(text[lastEnd..<range.lowerBound])
+                    if !beforeText.isEmpty {
+                        elements.append(SimpleMarkdownElement(type: .text, content: beforeText))
+                    }
+                }
+
+                // 添加代码
+                let codeText = String(text[codeRange])
+                elements.append(SimpleMarkdownElement(type: .code, content: codeText))
+
+                lastEnd = range.upperBound
+            }
+
+            // 添加剩余文本
+            if lastEnd < text.endIndex {
+                let remainingText = String(text[lastEnd...])
+                if !remainingText.isEmpty {
+                    elements.append(SimpleMarkdownElement(type: .text, content: remainingText))
+                }
+            }
+
+            return elements
+        }
+    }
+
+    // 如果没有代码，直接返回文本
+    elements.append(SimpleMarkdownElement(type: .text, content: text))
+    return elements
 }
 
 // MARK: - 多AI聊天视图
@@ -4696,19 +5618,36 @@ struct APIConfigView: View {
     @StateObject private var apiManager = APIConfigManager.shared
     @Environment(\.presentationMode) var presentationMode
 
+    // 只显示需要API配置的AI助手，不包含平台联系人
     let services = [
+        // 🇨🇳 国内主流AI服务商
         ("deepseek", "DeepSeek"),
         ("qwen", "通义千问"),
         ("chatglm", "智谱清言"),
         ("moonshot", "Kimi"),
         ("doubao", "豆包"),
         ("wenxin", "文心一言"),
+        ("spark", "讯飞星火"),
+        ("baichuan", "百川智能"),
+        ("minimax", "MiniMax"),
+        ("siliconflow-qwen", "千问-硅基流动"),
+
+        // 🌍 国际AI服务商
         ("openai", "OpenAI ChatGPT"),
         ("claude", "Anthropic Claude"),
         ("gemini", "Google Gemini"),
+
+        // ⚡ 高性能推理
         ("groq", "Groq"),
         ("together", "Together AI"),
-        ("perplexity", "Perplexity")
+        ("perplexity", "Perplexity"),
+
+        // 🎨 专业工具
+        ("dalle", "DALL-E"),
+        ("midjourney", "Midjourney"),
+        ("stablediffusion", "Stable Diffusion"),
+        ("elevenlabs", "ElevenLabs"),
+        ("whisper", "Whisper")
     ]
 
     var body: some View {
@@ -4998,6 +5937,12 @@ struct SearchEngineCard: View {
 // MARK: - 通知名称扩展
 extension Notification.Name {
     static let sendMultiAIQuery = Notification.Name("sendMultiAIQuery")
+    static let showPlatformHotTrends = Notification.Name("showPlatformHotTrends")
+    static let editMessage = Notification.Name("editMessage")
+    static let toggleFavorite = Notification.Name("toggleFavorite")
+    static let shareMessage = Notification.Name("shareMessage")
+    static let forwardMessage = Notification.Name("forwardMessage")
+    static let deleteMessage = Notification.Name("deleteMessage")
 }
 
 struct ContentView_Previews: PreviewProvider {
@@ -5510,3 +6455,356 @@ struct CategoryColorPickerView: View {
         }
     }
 }
+
+// MARK: - 平台热榜数据模型
+
+struct HotTrendItem: Identifiable, Codable {
+    let id: String
+    let title: String
+    let description: String?
+    let rank: Int
+    let hotValue: String?
+    let url: String?
+    let imageURL: String?
+    let category: String?
+    let timestamp: Date
+    let platform: String
+}
+
+struct HotTrendsList: Codable {
+    let platform: String
+    let updateTime: Date
+    let items: [HotTrendItem]
+    let totalCount: Int
+}
+
+
+
+// MARK: - HotTrendItem 扩展
+extension HotTrendItem {
+    var displayRank: String {
+        switch rank {
+        case 1: return "🥇"
+        case 2: return "🥈"
+        case 3: return "🥉"
+        default: return "\(rank)"
+        }
+    }
+
+    var isTopThree: Bool {
+        return rank <= 3
+    }
+}
+
+
+
+
+
+// MARK: - 热榜管理器协议和工厂
+protocol HotTrendsManagerProtocol: ObservableObject {
+    var hotTrends: [String: HotTrendsList] { get }
+    var isLoading: [String: Bool] { get }
+    var lastUpdateTime: [String: Date] { get }
+
+    func getHotTrends(for platform: String) -> HotTrendsList?
+    func refreshHotTrends(for platform: String)
+    func refreshAllHotTrends()
+    func shouldUpdate(platform: String) -> Bool
+    func getPerformanceStats() -> [String: Any]
+    func clearCache()
+}
+
+// 创建热榜管理器的工厂函数
+func createHotTrendsManager() -> any HotTrendsManagerProtocol {
+    // 暂时使用模拟实现，确保编译通过
+    return MockHotTrendsManager.shared
+}
+
+// 简化的热榜管理器实现
+class MockHotTrendsManager: ObservableObject, HotTrendsManagerProtocol {
+    static let shared = MockHotTrendsManager()
+    @Published var hotTrends: [String: HotTrendsList] = [:]
+    @Published var isLoading: [String: Bool] = [:]
+    @Published var lastUpdateTime: [String: Date] = [:]
+
+    init() {
+        // 初始化时生成一些示例数据
+        initializeWithSampleData()
+    }
+
+    private func initializeWithSampleData() {
+        // 初始化前几个平台的示例数据
+        let platformIds = ["douyin", "xiaohongshu", "bilibili"]
+        for platformId in platformIds {
+            hotTrends[platformId] = generateMockData(for: platformId)
+            lastUpdateTime[platformId] = Date()
+        }
+    }
+
+    func getHotTrends(for platform: String) -> HotTrendsList? {
+        return hotTrends[platform]
+    }
+
+    func refreshHotTrends(for platform: String) {
+        isLoading[platform] = true
+
+        // 模拟数据生成
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.hotTrends[platform] = self.generateMockData(for: platform)
+            self.lastUpdateTime[platform] = Date()
+            self.isLoading[platform] = false
+        }
+    }
+
+    func refreshAllHotTrends() {
+        // 所有平台ID列表
+        let platformIds = ["douyin", "xiaohongshu", "wechat_mp", "weixin_channels", "toutiao", "bilibili", "youtube", "jike", "baijiahao", "xigua", "ximalaya"]
+        for platformId in platformIds {
+            refreshHotTrends(for: platformId)
+        }
+    }
+
+    func shouldUpdate(platform: String) -> Bool {
+        guard let lastUpdate = lastUpdateTime[platform] else { return true }
+        return Date().timeIntervalSince(lastUpdate) > 1800 // 30分钟
+    }
+
+    func getPerformanceStats() -> [String: Any] {
+        return [
+            "cached_platforms": hotTrends.keys.count,
+            "loading_platforms": isLoading.filter { $0.value }.keys.count,
+            "last_update_count": lastUpdateTime.count,
+            "memory_usage": hotTrends.values.reduce(0) { $0 + $1.items.count }
+        ]
+    }
+
+    func clearCache() {
+        hotTrends.removeAll()
+        lastUpdateTime.removeAll()
+    }
+
+    private func generateMockData(for platform: String) -> HotTrendsList {
+        // 平台ID到名称的映射
+        let platformNames: [String: String] = [
+            "douyin": "抖音",
+            "xiaohongshu": "小红书",
+            "wechat_mp": "公众号",
+            "weixin_channels": "视频号",
+            "toutiao": "今日头条",
+            "bilibili": "B站",
+            "youtube": "油管",
+            "jike": "即刻",
+            "baijiahao": "百家号",
+            "xigua": "西瓜",
+            "ximalaya": "喜马拉雅"
+        ]
+        let platformName = platformNames[platform] ?? platform
+
+        let mockItems = (1...10).map { index in
+            HotTrendItem(
+                id: "\(platform)_\(index)",
+                title: "\(platformName)热门内容 \(index)",
+                description: "这是\(platformName)的热门内容描述",
+                rank: index,
+                hotValue: "🔥 热门",
+                url: nil,
+                imageURL: nil,
+                category: "热门",
+                timestamp: Date(),
+                platform: platform
+            )
+        }
+
+        return HotTrendsList(
+            platform: platform,
+            updateTime: Date(),
+            items: mockItems,
+            totalCount: mockItems.count
+        )
+    }
+}
+
+// MARK: - 简化的联系人管理器
+class SimpleContactsManager: ObservableObject {
+    static let shared = SimpleContactsManager()
+
+    @Published var enabledContacts: Set<String> = []
+
+    private init() {
+        loadContactSettings()
+    }
+
+    func loadContactSettings() {
+        if let data = UserDefaults.standard.data(forKey: "enabled_contacts"),
+           let contacts = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            enabledContacts = contacts
+        } else {
+            // 默认启用所有平台联系人和主要AI助手
+            let defaultEnabled = Set([
+                // 平台联系人（默认全部启用）
+                "douyin", "xiaohongshu", "wechat_mp", "weixin_channels", "toutiao",
+                "bilibili", "youtube", "jike", "baijiahao", "xigua", "ximalaya",
+                // 主要AI助手（用户可以选择启用）
+                "deepseek", "qwen", "chatglm", "moonshot", "openai", "claude", "gemini"
+            ])
+            enabledContacts = defaultEnabled
+            saveContactSettings()
+        }
+    }
+
+    func saveContactSettings() {
+        if let data = try? JSONEncoder().encode(enabledContacts) {
+            UserDefaults.standard.set(data, forKey: "enabled_contacts")
+        }
+    }
+
+    func isContactEnabled(_ contactId: String) -> Bool {
+        return enabledContacts.contains(contactId)
+    }
+
+    func setContactEnabled(_ contactId: String, enabled: Bool) {
+        if enabled {
+            enabledContacts.insert(contactId)
+        } else {
+            enabledContacts.remove(contactId)
+        }
+        saveContactSettings()
+    }
+}
+
+// MARK: - 简化的联系人管理视图
+struct SimpleContactsManagementView: View {
+    @StateObject private var apiManager = APIConfigManager.shared
+    @StateObject private var contactsManager = SimpleContactsManager.shared
+    @Environment(\.presentationMode) var presentationMode
+
+    @State private var searchText = ""
+
+    // 获取所有联系人（从SimpleAIChatView的contacts数组）
+    private let allContacts: [AIContact] = [
+        // AI助手
+        AIContact(id: "deepseek", name: "DeepSeek", description: "专业的AI编程助手", model: "deepseek-chat", avatar: "brain.head.profile", isOnline: true, apiEndpoint: "https://api.deepseek.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
+        AIContact(id: "qwen", name: "通义千问", description: "阿里云大语言模型", model: "qwen-max", avatar: "cloud.fill", isOnline: true, apiEndpoint: "https://dashscope.aliyuncs.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .translation, .summarization], color: .cyan),
+        AIContact(id: "openai", name: "ChatGPT", description: "OpenAI对话AI", model: "gpt-4", avatar: "bubble.left.and.bubble.right.fill", isOnline: true, apiEndpoint: "https://api.openai.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .green),
+        AIContact(id: "claude", name: "Claude", description: "Anthropic智能助手", model: "claude-3", avatar: "sparkles", isOnline: true, apiEndpoint: "https://api.anthropic.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
+        AIContact(id: "gemini", name: "Gemini", description: "Google AI助手", model: "gemini-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://api.google.com", requiresApiKey: true, supportedFeatures: [.textGeneration], color: .blue),
+
+        // 平台联系人
+        AIContact(id: "douyin", name: "抖音", description: "短视频热门内容推送", model: "platform-douyin", avatar: "music.note", isOnline: true, apiEndpoint: "https://www.douyin.com/hot", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .black),
+        AIContact(id: "xiaohongshu", name: "小红书", description: "生活方式热门分享", model: "platform-xiaohongshu", avatar: "heart.fill", isOnline: true, apiEndpoint: "https://www.xiaohongshu.com/explore", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
+        AIContact(id: "bilibili", name: "B站", description: "哔哩哔哩热门视频", model: "platform-bilibili", avatar: "tv.fill", isOnline: true, apiEndpoint: "https://www.bilibili.com/ranking", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .pink),
+    ]
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // 搜索栏
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+
+                    TextField("搜索联系人...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+
+                // 联系人列表
+                List {
+                    ForEach(filteredContacts, id: \.id) { contact in
+                        SimpleContactRow(contact: contact)
+                    }
+                }
+                .listStyle(PlainListStyle())
+            }
+            .navigationTitle("联系人管理")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("关闭") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+        }
+    }
+
+    private var filteredContacts: [AIContact] {
+        let filtered = allContacts.filter { contact in
+            searchText.isEmpty ||
+            contact.name.localizedCaseInsensitiveContains(searchText) ||
+            contact.description.localizedCaseInsensitiveContains(searchText)
+        }
+
+        return filtered.sorted { $0.name < $1.name }
+    }
+
+    private func SimpleContactRow(contact: AIContact) -> some View {
+        HStack(spacing: 12) {
+            // 联系人图标
+            Image(systemName: contact.avatar)
+                .font(.system(size: 24))
+                .foregroundColor(contact.color)
+                .frame(width: 40, height: 40)
+                .background(contact.color.opacity(0.1))
+                .clipShape(Circle())
+
+            // 联系人信息
+            VStack(alignment: .leading, spacing: 4) {
+                Text(contact.name)
+                    .font(.headline)
+                    .fontWeight(.medium)
+
+                Text(contact.description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                // 状态标签
+                HStack(spacing: 8) {
+                    if contact.supportedFeatures.contains(.hotTrends) {
+                        // 平台联系人
+                        Label("内容平台", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    } else {
+                        // AI助手
+                        if apiManager.hasAPIKey(for: contact.id) {
+                            Label("已配置API", systemImage: "checkmark.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        } else {
+                            Label("需要配置API", systemImage: "exclamationmark.circle.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+
+            // 启用开关
+            Toggle("", isOn: Binding(
+                get: { contactsManager.isContactEnabled(contact.id) },
+                set: { enabled in
+                    contactsManager.setContactEnabled(contact.id, enabled: enabled)
+                }
+            ))
+            .toggleStyle(SwitchToggleStyle())
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+
+
+
+
+
+
+
+
+

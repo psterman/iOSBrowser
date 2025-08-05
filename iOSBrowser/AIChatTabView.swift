@@ -11,6 +11,8 @@ struct AIChatTabView: View {
     @State private var showingDirectChat = false
     @State private var selectedAssistantId = "deepseek"
     @State private var currentContact: AIContact?
+    @State private var showingHotTrends = false
+    @State private var selectedPlatformId: String?
     
     var body: some View {
         NavigationView {
@@ -36,6 +38,17 @@ struct AIChatTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .showAIAssistant)) { notification in
             if let assistantId = notification.object as? String {
                 startDirectChat(with: assistantId)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showPlatformHotTrends)) { notification in
+            if let platformId = notification.object as? String {
+                selectedPlatformId = platformId
+                showingHotTrends = true
+            }
+        }
+        .sheet(isPresented: $showingHotTrends) {
+            if let platformId = selectedPlatformId {
+                HotTrendsView(platformId: platformId)
             }
         }
     }
@@ -84,7 +97,14 @@ struct AIChatTabView: View {
 
 struct AIAssistantSelectionView: View {
     let onAssistantSelected: (String) -> Void
-    
+    @StateObject private var hotTrendsManager = HotTrendsManager.shared
+    @State private var selectedCategory: AssistantCategory = .aiAssistants
+
+    enum AssistantCategory: String, CaseIterable {
+        case aiAssistants = "AI助手"
+        case platformContacts = "平台热榜"
+    }
+
     private let assistants = [
         ("deepseek", "DeepSeek", "brain.head.profile", Color.purple, "专业编程助手"),
         ("qwen", "通义千问", "cloud.fill", Color.cyan, "阿里云AI"),
@@ -95,45 +115,173 @@ struct AIAssistantSelectionView: View {
     ]
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("选择AI助手开始聊天")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .padding(.top)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                ForEach(assistants, id: \.0) { assistant in
-                    Button(action: {
-                        onAssistantSelected(assistant.0)
-                    }) {
-                        VStack(spacing: 12) {
-                            Image(systemName: assistant.2)
-                                .font(.system(size: 40))
-                                .foregroundColor(assistant.3)
-                            
-                            Text(assistant.1)
-                                .font(.headline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                            
-                            Text(assistant.4)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(16)
-                    }
-                    .buttonStyle(PlainButtonStyle())
+        VStack(spacing: 0) {
+            // 分类选择器
+            Picker("选择类型", selection: $selectedCategory) {
+                ForEach(AssistantCategory.allCases, id: \.self) { category in
+                    Text(category.rawValue).tag(category)
                 }
             }
+            .pickerStyle(SegmentedPickerStyle())
             .padding(.horizontal)
-            
-            Spacer()
+            .padding(.top)
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    Text(selectedCategory == .aiAssistants ? "选择AI助手开始聊天" : "选择平台查看热榜")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .padding(.top)
+
+                    if selectedCategory == .aiAssistants {
+                        // AI助手网格
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
+                            ForEach(assistants, id: \.0) { assistant in
+                                Button(action: {
+                                    onAssistantSelected(assistant.0)
+                                }) {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: assistant.2)
+                                            .font(.system(size: 40))
+                                            .foregroundColor(assistant.3)
+
+                                        Text(assistant.1)
+                                            .font(.headline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+
+                                        Text(assistant.4)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(16)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.horizontal)
+                    } else {
+                        // 平台热榜网格
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
+                            ForEach(PlatformContact.allPlatforms) { platform in
+                                PlatformContactCard(
+                                    platform: platform,
+                                    onTap: {
+                                        handlePlatformSelection(platform)
+                                    }
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 100)
+                }
+            }
         }
-        .navigationTitle("AI助手")
+        .navigationTitle(selectedCategory.rawValue)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // 初始化时获取热榜数据
+            hotTrendsManager.refreshAllHotTrends()
+        }
     }
+
+    private func handlePlatformSelection(_ platform: PlatformContact) {
+        // 处理平台选择，显示热榜内容
+        print("🎯 选择平台: \(platform.name)")
+
+        // 这里可以导航到热榜详情页面或者直接打开应用
+        if let scheme = platform.deepLinkScheme,
+           let url = URL(string: scheme) {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            } else {
+                // 如果应用未安装，可以跳转到App Store或显示热榜内容
+                showHotTrendsForPlatform(platform)
+            }
+        } else {
+            showHotTrendsForPlatform(platform)
+        }
+    }
+
+    private func showHotTrendsForPlatform(_ platform: PlatformContact) {
+        // 显示平台热榜内容
+        // 这里可以通过通知或导航到专门的热榜页面
+        NotificationCenter.default.post(
+            name: .showPlatformHotTrends,
+            object: platform.id
+        )
+    }
+}
+
+// MARK: - 平台联系人卡片
+struct PlatformContactCard: View {
+    let platform: PlatformContact
+    let onTap: () -> Void
+    @StateObject private var hotTrendsManager = HotTrendsManager.shared
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 12) {
+                // 平台图标
+                Image(systemName: platform.icon)
+                    .font(.system(size: 40))
+                    .foregroundColor(platform.color)
+
+                // 平台名称
+                Text(platform.name)
+                    .font(.headline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+
+                // 平台描述
+                Text(platform.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+
+                // 热榜状态指示器
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(hotTrendsManager.isLoading[platform.id] == true ? Color.orange : Color.green)
+                        .frame(width: 6, height: 6)
+
+                    Text(hotTrendsManager.isLoading[platform.id] == true ? "更新中" : "已更新")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(16)
+            .overlay(
+                // 热榜数量徽章
+                Group {
+                    if let trends = hotTrendsManager.getHotTrends(for: platform.id) {
+                        Text("\(trends.items.count)")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .frame(width: 20, height: 20)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .offset(x: 8, y: -8)
+                    }
+                }
+                , alignment: .topTrailing
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - 通知扩展
+extension Notification.Name {
+    static let showPlatformHotTrends = Notification.Name("showPlatformHotTrends")
 }
