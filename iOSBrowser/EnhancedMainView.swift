@@ -9,112 +9,37 @@ import SwiftUI
 
 struct EnhancedMainView: View {
     @StateObject private var webViewModel = WebViewModel()
-    @StateObject private var accessibilityManager = AccessibilityManager.shared
     @EnvironmentObject var deepLinkHandler: DeepLinkHandler
     @State private var selectedTab = 0
     
-    // 各tab的设置状态
-    @State private var showingSearchSettings = false
-    @State private var showingAISettings = false
-    @State private var showingAggregatedSearchSettings = false
-    @State private var showingBrowserSettings = false
-    @State private var showingGeneralSettings = false
-
     var body: some View {
         VStack(spacing: 0) {
-            // 主内容区域
+            // 主内容区域 - 微信风格的简洁滑动
             GeometryReader { geometry in
                 HStack(spacing: 0) {
-                    // 搜索Tab
-                    NavigationView {
-                        SearchView()
-                            .navigationTitle("搜索")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    Button(action: { showingSearchSettings = true }) {
-                                        Image(systemName: "gearshape.fill")
-                                            .foregroundColor(.themeGreen)
-                                    }
-                                }
-                            }
-                    }
-                    .frame(width: geometry.size.width)
+                    SearchView()
+                        .frame(width: geometry.size.width)
                     
-                    // AI聊天Tab
-                    NavigationView {
-                        SimpleAIChatView()
-                            .navigationTitle("AI对话")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    Button(action: { showingAISettings = true }) {
-                                        Image(systemName: "gearshape.fill")
-                                            .foregroundColor(.themeGreen)
-                                    }
-                                }
-                            }
-                    }
-                    .frame(width: geometry.size.width)
+                    BrowserView(viewModel: webViewModel)
+                        .frame(width: geometry.size.width)
                     
-                    // 聚合搜索Tab
-                    NavigationView {
-                        AggregatedSearchView()
-                            .navigationTitle("聚合搜索")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    Button(action: { showingAggregatedSearchSettings = true }) {
-                                        Image(systemName: "gearshape.fill")
-                                            .foregroundColor(.themeGreen)
-                                    }
-                                }
-                            }
-                    }
-                    .frame(width: geometry.size.width)
+                    SimpleAIChatView()
+                        .frame(width: geometry.size.width)
                     
-                    // 浏览器Tab
-                    NavigationView {
-                        EnhancedBrowserView(viewModel: webViewModel)
-                            .navigationTitle("浏览器")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    Button(action: { showingBrowserSettings = true }) {
-                                        Image(systemName: "gearshape.fill")
-                                            .foregroundColor(.themeGreen)
-                                    }
-                                }
-                            }
-                    }
-                    .frame(width: geometry.size.width)
-                    
-                    // 设置Tab
-                    NavigationView {
-                        WidgetConfigView()
-                            .navigationTitle("设置")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    Button(action: { showingGeneralSettings = true }) {
-                                        Image(systemName: "gearshape.fill")
-                                            .foregroundColor(.themeGreen)
-                                    }
-                                }
-                            }
-                    }
-                    .frame(width: geometry.size.width)
+                    WidgetConfigView()
+                        .frame(width: geometry.size.width)
                 }
                 .offset(x: -CGFloat(selectedTab) * geometry.size.width)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0), value: selectedTab)
                 .clipped()
             }
-
-            // 底部Tab栏
+            
+            // 微信风格的底部Tab栏
             WeChatTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .onAppear {
+            // 应用启动时立即初始化小组件数据
             initializeWidgetDataOnAppStart()
         }
         .onOpenURL { url in
@@ -127,362 +52,112 @@ struct EnhancedMainView: View {
         .onChange(of: deepLinkHandler.searchQuery) { query in
             if !query.isEmpty {
                 print("🔗 深度链接搜索查询: \(query)")
+                // 通过深度链接处理器传递搜索查询
+                // SearchView会监听这个变化
             }
         }
-        // 各tab的设置sheet
-        .sheet(isPresented: $showingSearchSettings) {
-            SearchSettingsView()
-        }
-        .sheet(isPresented: $showingAISettings) {
-            AISettingsView()
-        }
-        .sheet(isPresented: $showingAggregatedSearchSettings) {
-            AggregatedSearchSettingsView()
-        }
-        .sheet(isPresented: $showingBrowserSettings) {
-            BrowserSettingsView()
-        }
-        .sheet(isPresented: $showingGeneralSettings) {
-            GeneralSettingsView()
-        }
     }
-
+    
     // MARK: - 应用启动时初始化小组件数据
     private func initializeWidgetDataOnAppStart() {
-        print("🚀 应用启动时初始化小组件数据...")
+        print("🚨🚨🚨 ===== 应用启动时初始化小组件数据开始 =====")
+        print("🚀🚀🚀 应用启动时初始化小组件数据...")
         
         let defaults = UserDefaults.standard
         var needsSync = false
-
+        
         // 检查并初始化搜索引擎数据
         if defaults.stringArray(forKey: "iosbrowser_engines")?.isEmpty != false {
             let defaultEngines = ["baidu", "google"]
             defaults.set(defaultEngines, forKey: "iosbrowser_engines")
+            print("🚀 应用启动初始化: 保存默认搜索引擎 \(defaultEngines)")
             needsSync = true
         }
-
+        
         // 检查并初始化应用数据
         if defaults.stringArray(forKey: "iosbrowser_apps")?.isEmpty != false {
             let defaultApps = ["taobao", "zhihu", "douyin"]
             defaults.set(defaultApps, forKey: "iosbrowser_apps")
+            print("🚀 应用启动初始化: 保存默认应用 \(defaultApps)")
             needsSync = true
         }
-
+        
         // 检查并初始化AI助手数据
         if defaults.stringArray(forKey: "iosbrowser_ai")?.isEmpty != false {
             let defaultAI = ["deepseek", "qwen"]
             defaults.set(defaultAI, forKey: "iosbrowser_ai")
+            print("🚀 应用启动初始化: 保存默认AI助手 \(defaultAI)")
             needsSync = true
         }
-
+        
         // 检查并初始化快捷操作数据
         if defaults.stringArray(forKey: "iosbrowser_actions")?.isEmpty != false {
             let defaultActions = ["search", "bookmark"]
             defaults.set(defaultActions, forKey: "iosbrowser_actions")
+            print("🚀 应用启动初始化: 保存默认快捷操作 \(defaultActions)")
             needsSync = true
         }
-
+        
         if needsSync {
-            defaults.synchronize()
+            // 强制同步
+            let syncResult = defaults.synchronize()
+            print("🚀 应用启动初始化: UserDefaults同步结果 \(syncResult)")
+            
+            // 延迟刷新小组件，确保数据已保存
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                print("🚀 应用启动初始化: 延迟刷新小组件...")
+                if #available(iOS 14.0, *) {
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            }
         }
+        
+        print("🚨🚨🚨 ===== 应用启动时初始化小组件数据完成 =====")
     }
-
+    
     private func handleDeepLink(_ url: URL) {
+        print("🔗 收到深度链接: \(url)")
         deepLinkHandler.handleDeepLink(url)
     }
 }
 
-// MARK: - 搜索设置视图
-struct SearchSettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
+// MARK: - 微信风格的Tab栏
+struct WeChatTabBar: View {
+    @Binding var selectedTab: Int
+    
+    private let tabs = [
+        ("magnifyingglass", "搜索"),
+        ("safari", "浏览"),
+        ("message", "AI聊天"),
+        ("gearshape", "设置")
+    ]
     
     var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("搜索引擎设置")) {
-                    NavigationLink("搜索引擎配置") {
-                        UnifiedSearchEngineConfigView()
+        HStack(spacing: 0) {
+            ForEach(0..<4) { index in
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedTab = index
                     }
-                    
-                    NavigationLink("应用搜索配置") {
-                        UnifiedAppConfigView()
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: tabs[index].0)
+                            .font(.system(size: 24))
+                        Text(tabs[index].1)
+                            .font(.system(size: 10))
                     }
-                }
-                
-                Section(header: Text("搜索功能")) {
-                    Toggle("智能跳转", isOn: .constant(true))
-                    Toggle("搜索历史", isOn: .constant(true))
-                    Toggle("快速搜索建议", isOn: .constant(true))
-                }
-                
-                Section(header: Text("分类管理")) {
-                    NavigationLink("分类设置") {
-                        Text("分类管理功能")
-                            .navigationTitle("分类管理")
-                    }
-                }
-            }
-            .navigationTitle("搜索设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
+                    .foregroundColor(selectedTab == index ? .green : .gray)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color(.systemGray4)),
+            alignment: .top
+        )
     }
 }
-
-// MARK: - AI设置视图
-struct AISettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @StateObject private var dataSyncCenter = DataSyncCenter.shared
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("AI助手配置")) {
-                    NavigationLink("AI助手选择") {
-                        UnifiedAIConfigView()
-                    }
-                    
-                    NavigationLink("API配置") {
-                        APIConfigView()
-                    }
-                }
-                
-                Section(header: Text("平台对话人")) {
-                    NavigationLink("平台助手管理") {
-                        Text("平台助手管理功能")
-                            .navigationTitle("平台助手管理")
-                    }
-                    
-                    Toggle("自动加载搜索结果", isOn: .constant(true))
-                    Toggle("智能对话建议", isOn: .constant(true))
-                }
-                
-                Section(header: Text("对话设置")) {
-                    Toggle("保存对话历史", isOn: .constant(true))
-                    Toggle("语音输入", isOn: .constant(false))
-                    Toggle("自动翻译", isOn: .constant(false))
-                }
-            }
-            .navigationTitle("AI设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 聚合搜索设置视图
-struct AggregatedSearchSettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @State private var selectedPlatforms: Set<String> = ["bilibili", "toutiao", "wechat_mp", "ximalaya"]
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("搜索平台")) {
-                    PlatformToggleRow(title: "B站", isOn: $selectedPlatforms.contains("bilibili")) {
-                        if selectedPlatforms.contains("bilibili") {
-                            selectedPlatforms.remove("bilibili")
-                        } else {
-                            selectedPlatforms.insert("bilibili")
-                        }
-                    }
-                    
-                    PlatformToggleRow(title: "今日头条", isOn: $selectedPlatforms.contains("toutiao")) {
-                        if selectedPlatforms.contains("toutiao") {
-                            selectedPlatforms.remove("toutiao")
-                        } else {
-                            selectedPlatforms.insert("toutiao")
-                        }
-                    }
-                    
-                    PlatformToggleRow(title: "微信公众号", isOn: $selectedPlatforms.contains("wechat_mp")) {
-                        if selectedPlatforms.contains("wechat_mp") {
-                            selectedPlatforms.remove("wechat_mp")
-                        } else {
-                            selectedPlatforms.insert("wechat_mp")
-                        }
-                    }
-                    
-                    PlatformToggleRow(title: "喜马拉雅", isOn: $selectedPlatforms.contains("ximalaya")) {
-                        if selectedPlatforms.contains("ximalaya") {
-                            selectedPlatforms.remove("ximalaya")
-                        } else {
-                            selectedPlatforms.insert("ximalaya")
-                        }
-                    }
-                }
-                
-                Section(header: Text("搜索行为")) {
-                    Toggle("优先打开应用", isOn: .constant(true))
-                    Toggle("显示搜索结果预览", isOn: .constant(true))
-                    Toggle("保存搜索历史", isOn: .constant(true))
-                }
-                
-                Section(header: Text("快速搜索")) {
-                    NavigationLink("搜索建议管理") {
-                        Text("搜索建议管理功能")
-                            .navigationTitle("搜索建议管理")
-                    }
-                }
-            }
-            .navigationTitle("聚合搜索设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 浏览器设置视图
-struct BrowserSettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @StateObject private var contentBlockManager = ContentBlockManager.shared
-    @StateObject private var httpsManager = HTTPSManager.shared
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("内容拦截")) {
-                    Toggle("启用内容拦截", isOn: $contentBlockManager.isEnabled)
-                    
-                    if contentBlockManager.isEnabled {
-                        Toggle("拦截广告", isOn: $contentBlockManager.blockAds)
-                        Toggle("拦截追踪器", isOn: $contentBlockManager.blockTrackers)
-                        Toggle("拦截恶意软件", isOn: $contentBlockManager.blockMalware)
-                    }
-                }
-                
-                Section(header: Text("安全传输")) {
-                    Toggle("仅使用HTTPS", isOn: $httpsManager.isHTTPSOnly)
-                    Toggle("证书固定", isOn: $httpsManager.certificatePinning)
-                }
-                
-                Section(header: Text("浏览功能")) {
-                    Toggle("自动刷新", isOn: .constant(false))
-                    Toggle("保存浏览历史", isOn: .constant(true))
-                    Toggle("书签同步", isOn: .constant(true))
-                }
-                
-                Section(header: Text("搜索引擎")) {
-                    NavigationLink("默认搜索引擎") {
-                        Text("搜索引擎选择")
-                            .navigationTitle("默认搜索引擎")
-                    }
-                }
-            }
-            .navigationTitle("浏览器设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 通用设置视图
-struct GeneralSettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @StateObject private var encryptionManager = DataEncryptionManager.shared
-    @StateObject private var accessibilityManager = AccessibilityManager.shared
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text("数据安全")) {
-                    Toggle("启用数据加密", isOn: $encryptionManager.isEncryptionEnabled)
-                    
-                    if encryptionManager.isEncryptionEnabled {
-                        NavigationLink("加密统计") {
-                            Text("加密统计信息")
-                                .navigationTitle("加密统计")
-                        }
-                    }
-                }
-                
-                Section(header: Text("小组件配置")) {
-                    NavigationLink("小组件设置") {
-                        WidgetConfigView()
-                    }
-                }
-                
-                Section(header: Text("使用帮助")) {
-                    NavigationLink("手势操作指南") {
-                        GestureGuideView()
-                    }
-                }
-                
-                Section(header: Text("适老化设置")) {
-                    NavigationLink("适老化模式") {
-                        AccessibilityModeToggleView()
-                    }
-                }
-                
-                Section(header: Text("应用信息")) {
-                    HStack {
-                        Text("版本")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("构建版本")
-                        Spacer()
-                        Text("1")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .navigationTitle("通用设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .font(.system(size: accessibilityManager.getFontSize(16), weight: .medium))
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 平台切换行
-struct PlatformToggleRow: View {
-    let title: String
-    @Binding var isOn: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Toggle("", isOn: $isOn)
-                .onChange(of: isOn) { _ in
-                    action()
-                }
-        }
-    }
-} 

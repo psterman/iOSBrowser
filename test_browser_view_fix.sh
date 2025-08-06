@@ -1,65 +1,52 @@
 #!/bin/bash
 
-echo "🔧 验证BrowserView.swift的临时修复..."
+echo "🧪 Testing BrowserView compilation fixes..."
 
-# 检查BrowserView.swift中的AccessibilityManager引用
-echo "🔍 检查BrowserView.swift中的AccessibilityManager引用..."
-if grep -q "@StateObject private var accessibilityManager = AccessibilityManager.shared" "iOSBrowser/BrowserView.swift"; then
-    echo "❌ BrowserView.swift 仍有 AccessibilityManager 引用"
+# Check if the error message was removed from the top of the file
+if grep -q "Cannot find 'EnhancedMainView' in scope" iOSBrowser/BrowserView.swift; then
+    echo "❌ Error: The error message is still at the top of BrowserView.swift"
+    exit 1
 else
-    echo "✅ BrowserView.swift 已暂时移除 AccessibilityManager 引用"
+    echo "✅ Error message removed from BrowserView.swift"
 fi
 
-# 检查BrowserView.swift中是否还有accessibilityManager的使用
-echo "🔍 检查BrowserView.swift中是否还有accessibilityManager的使用..."
-if grep -q "accessibilityManager\." "iOSBrowser/BrowserView.swift"; then
-    echo "❌ BrowserView.swift 仍有 accessibilityManager 使用"
-    grep "accessibilityManager\." "iOSBrowser/BrowserView.swift"
+# Check if there are duplicate pasteFromClipboard functions
+pasteFromClipboardCount=$(grep -c "private func pasteFromClipboard()" iOSBrowser/BrowserView.swift)
+if [ "$pasteFromClipboardCount" -gt 1 ]; then
+    echo "❌ Error: Found $pasteFromClipboardCount duplicate pasteFromClipboard functions"
+    exit 1
 else
-    echo "✅ BrowserView.swift 没有 accessibilityManager 使用"
+    echo "✅ No duplicate pasteFromClipboard functions found"
 fi
 
-# 检查其他文件是否正常使用AccessibilityManager
-echo "🔍 检查其他文件是否正常使用AccessibilityManager..."
-echo "✅ 其他文件的AccessibilityManager引用："
-grep -r "@StateObject.*accessibilityManager.*AccessibilityManager.shared" "iOSBrowser/"*.swift | grep -v "BrowserView.swift"
-
-# 检查AccessibilityManager.swift是否存在
-echo "🔍 检查AccessibilityManager.swift是否存在..."
-if [ -f "iOSBrowser/AccessibilityManager.swift" ]; then
-    echo "✅ AccessibilityManager.swift 文件存在"
+# Check if the file starts with proper Swift file header
+if head -n 1 iOSBrowser/BrowserView.swift | grep -q "^//"; then
+    echo "✅ File starts with proper Swift comment header"
 else
-    echo "❌ AccessibilityManager.swift 文件不存在"
+    echo "❌ Error: File doesn't start with proper Swift comment header"
+    exit 1
 fi
 
-# 检查AccessibilityManager类定义
-echo "🔍 检查AccessibilityManager类定义..."
-if grep -q "class AccessibilityManager: ObservableObject" "iOSBrowser/AccessibilityManager.swift"; then
-    echo "✅ AccessibilityManager 类已正确定义"
+# Check if all required imports are present
+if grep -q "import SwiftUI" iOSBrowser/BrowserView.swift && grep -q "import UIKit" iOSBrowser/BrowserView.swift; then
+    echo "✅ Required imports are present"
 else
-    echo "❌ AccessibilityManager 类定义有问题"
+    echo "❌ Error: Missing required imports"
+    exit 1
 fi
 
-# 检查是否有其他编译错误
-echo "🔍 检查是否有其他编译错误..."
-if grep -q "Cannot find.*in scope" "iOSBrowser/"*.swift 2>/dev/null; then
-    echo "❌ 仍有 'Cannot find in scope' 错误"
-    grep "Cannot find.*in scope" "iOSBrowser/"*.swift
+# Check if the file ends properly
+if tail -n 1 iOSBrowser/BrowserView.swift | grep -q "}$"; then
+    echo "✅ File ends properly"
 else
-    echo "✅ 没有发现 'Cannot find in scope' 错误"
+    echo "❌ Error: File doesn't end properly"
+    exit 1
 fi
 
+echo "🎉 All BrowserView compilation fixes verified successfully!"
 echo ""
-echo "🎉 BrowserView.swift临时修复验证完成！"
-echo ""
-echo "📋 临时修复总结："
-echo "1. ✅ 暂时移除了BrowserView.swift中的AccessibilityManager引用"
-echo "2. ✅ 注释掉了accessibilityManager.setSearchFocused(true)调用"
-echo "3. ✅ 其他文件仍然正常使用AccessibilityManager"
-echo "4. ✅ AccessibilityManager.swift文件存在且正确定义"
-echo ""
-echo "🎯 下一步建议："
-echo "- 清理Xcode项目缓存 (Product -> Clean Build Folder)"
-echo "- 重新构建项目"
-echo "- 如果编译成功，可以逐步恢复AccessibilityManager功能"
-echo "- 如果仍有问题，可能需要检查项目配置或模块依赖" 
+echo "📋 Summary of fixes applied:"
+echo "   ✅ Removed error message from top of file"
+echo "   ✅ Removed duplicate pasteFromClipboard function"
+echo "   ✅ Verified proper file structure"
+echo "   ✅ Confirmed all required imports are present" 

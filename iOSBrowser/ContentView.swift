@@ -13,6 +13,97 @@ import WidgetKit
 import WidgetKit
 #endif
 
+// MARK: - 通知名称扩展
+extension Notification.Name {
+    // 浏览器相关
+    static let pasteToBrowserInput = Notification.Name("com.iosbrowser.notification.pasteToBrowserInput")
+    static let browseWithClipboard = Notification.Name("com.iosbrowser.notification.browseWithClipboard")
+    static let loadUrl = Notification.Name("com.iosbrowser.notification.loadUrl")
+    static let startAIConversation = Notification.Name("com.iosbrowser.notification.startAIConversation")
+    
+    // 搜索相关
+    static let switchSearchEngine = Notification.Name("com.iosbrowser.notification.switchSearchEngine")
+    static let performSearch = Notification.Name("com.iosbrowser.notification.performSearch")
+    static let browserClipboardSearch = Notification.Name("com.iosbrowser.notification.browserClipboardSearch")
+    static let smartSearchWithClipboard = Notification.Name("com.iosbrowser.notification.smartSearchWithClipboard")
+    static let appSearchWithClipboard = Notification.Name("com.iosbrowser.notification.appSearchWithClipboard")
+    static let directAppSearch = Notification.Name("com.iosbrowser.notification.directAppSearch")
+    static let loadSearchEngine = Notification.Name("com.iosbrowser.notification.loadSearchEngine")
+    static let activateAppSearch = Notification.Name("com.iosbrowser.notification.activateAppSearch")
+    
+    // AI助手相关
+    static let switchToAI = Notification.Name("com.iosbrowser.notification.switchToAI")
+    static let sendPrompt = Notification.Name("com.iosbrowser.notification.sendPrompt")
+    static let navigateToChat = Notification.Name("com.iosbrowser.notification.navigateToChat")
+    static let sendPromptToActiveChat = Notification.Name("com.iosbrowser.notification.sendPromptToActiveChat")
+    static let showBatchOperation = Notification.Name("com.iosbrowser.notification.showBatchOperation")
+    static let openDirectChat = Notification.Name("com.iosbrowser.notification.openDirectChat")
+    static let showAIAssistant = Notification.Name("com.iosbrowser.notification.showAIAssistant")
+    
+    // 应用相关
+    static let searchInApp = Notification.Name("com.iosbrowser.notification.searchInApp")
+}
+
+// MARK: - CategoryConfig 定义
+struct CategoryConfig: Identifiable, Codable {
+    let id = UUID()
+    var name: String
+    var color: Color
+    var icon: String
+    var order: Int
+    var isCustom: Bool = false
+    
+    // 颜色编码支持
+    enum CodingKeys: String, CodingKey {
+        case name, icon, order, isCustom
+        case colorRed, colorGreen, colorBlue, colorAlpha
+    }
+    
+    init(name: String, color: Color, icon: String, order: Int, isCustom: Bool = false) {
+        self.name = name
+        self.color = color
+        self.icon = icon
+        self.order = order
+        self.isCustom = isCustom
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        icon = try container.decode(String.self, forKey: .icon)
+        order = try container.decode(Int.self, forKey: .order)
+        isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? false
+        
+        let red = try container.decode(Double.self, forKey: .colorRed)
+        let green = try container.decode(Double.self, forKey: .colorGreen)
+        let blue = try container.decode(Double.self, forKey: .colorBlue)
+        let alpha = try container.decode(Double.self, forKey: .colorAlpha)
+        color = Color(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(icon, forKey: .icon)
+        try container.encode(order, forKey: .order)
+        try container.encode(isCustom, forKey: .isCustom)
+        
+        // 正确的颜色编码 - 提取实际的RGB值
+        let uiColor = UIColor(color)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        
+        try container.encode(Double(red), forKey: .colorRed)
+        try container.encode(Double(green), forKey: .colorGreen)
+        try container.encode(Double(blue), forKey: .colorBlue)
+        try container.encode(Double(alpha), forKey: .colorAlpha)
+    }
+}
+
 // MARK: - 绿色主题色值标准
 extension Color {
     // 主绿色 - 与Tab一致的标准绿色
@@ -1105,59 +1196,6 @@ struct WidgetConfigView: View {
         print("✅ 配置已保存成功！")
     }
 
-    // MARK: - 测试数据保存和加载（不修改用户数据）
-    private func testDataSaveAndLoad() {
-        print("🧪🧪🧪 开始测试数据保存和加载验证...")
-
-        // 1. 显示当前内存中的数据
-        print("📱 当前内存数据:")
-        print("   搜索引擎: \(dataSyncCenter.selectedSearchEngines)")
-        print("   AI助手: \(dataSyncCenter.selectedAIAssistants)")
-        print("   应用: \(dataSyncCenter.selectedApps)")
-        print("   快捷操作: \(dataSyncCenter.selectedQuickActions)")
-
-        // 2. 验证当前数据是否已保存到UserDefaults
-        print("🔍 验证当前数据保存状态...")
-        let defaults = UserDefaults.standard
-        defaults.synchronize()
-
-        let savedEngines = defaults.stringArray(forKey: "iosbrowser_engines") ?? []
-        let savedAI = defaults.stringArray(forKey: "iosbrowser_ai") ?? []
-        let savedApps = defaults.stringArray(forKey: "iosbrowser_apps") ?? []
-        let savedActions = defaults.stringArray(forKey: "iosbrowser_actions") ?? []
-        let lastUpdate = defaults.double(forKey: "iosbrowser_last_update")
-
-        print("💾 UserDefaults中保存的数据:")
-        print("   搜索引擎: \(savedEngines)")
-        print("   AI助手: \(savedAI)")
-        print("   应用: \(savedApps)")
-        print("   快捷操作: \(savedActions)")
-        print("   最后更新: \(Date(timeIntervalSince1970: lastUpdate))")
-
-        // 3. 检查数据一致性
-        let enginesMatch = dataSyncCenter.selectedSearchEngines == savedEngines
-        let aiMatch = dataSyncCenter.selectedAIAssistants == savedAI
-        let appsMatch = dataSyncCenter.selectedApps == savedApps
-        let actionsMatch = dataSyncCenter.selectedQuickActions == savedActions
-
-        print("🔍 数据一致性检查:")
-        print("   搜索引擎: \(enginesMatch ? "✅ 一致" : "❌ 不一致")")
-        print("   AI助手: \(aiMatch ? "✅ 一致" : "❌ 不一致")")
-        print("   应用: \(appsMatch ? "✅ 一致" : "❌ 不一致")")
-        print("   快捷操作: \(actionsMatch ? "✅ 一致" : "❌ 不一致")")
-
-        // 4. 总结测试结果
-        let allMatch = enginesMatch && aiMatch && appsMatch && actionsMatch
-        if allMatch {
-            print("🎉 测试通过！所有数据已正确保存")
-        } else {
-            print("⚠️ 测试发现问题！部分数据未正确保存")
-            print("💡 建议：点击'保存'按钮手动保存数据")
-        }
-
-        print("🧪🧪🧪 测试验证完成！")
-    }
-
     // MARK: - 重置到默认设置
     private func resetToDefaults() {
         print("🔄🔄🔄 开始重置到默认设置...")
@@ -1254,44 +1292,6 @@ struct WidgetConfigView: View {
         print("🔥🔥🔥 强制初始化: 已触发小组件刷新")
 
         print("🔥🔥🔥 强制初始化UserDefaults数据完成")
-    }
-
-    // MARK: - 测试数据联动
-    private func testDataSync() {
-        print("🧪🧪🧪 开始测试数据联动...")
-
-        // 测试数据
-        let testApps = ["wechat", "alipay", "taobao", "jd"]
-        let testAI = ["chatgpt", "deepseek", "claude"]
-        let testEngines = ["google", "bing", "duckduckgo"]
-        let testActions = ["search", "bookmark", "translate"]
-
-        print("🧪 测试应用数据联动...")
-        dataSyncCenter.updateAppSelection(testApps)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            print("🧪 测试AI助手数据联动...")
-            self.dataSyncCenter.updateAISelection(testAI)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            print("🧪 测试搜索引擎数据联动...")
-            self.dataSyncCenter.updateSearchEngineSelection(testEngines)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            print("🧪 测试快捷操作数据联动...")
-            self.dataSyncCenter.updateQuickActionSelection(testActions)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-            print("🧪🧪🧪 数据联动测试完成！")
-            print("🧪 请检查小组件是否显示以下数据:")
-            print("   应用: \(testApps)")
-            print("   AI助手: \(testAI)")
-            print("   搜索引擎: \(testEngines)")
-            print("   快捷操作: \(testActions)")
-        }
     }
 
     private func getTabIcon(_ index: Int) -> String {
@@ -2550,27 +2550,6 @@ class APIConfigManager: ObservableObject {
     }
 }
 
-// MARK: - 深度链接通知名称
-extension Notification.Name {
-    static let switchSearchEngine = Notification.Name("switchSearchEngine")
-    static let performSearch = Notification.Name("performSearch")
-    static let switchToAI = Notification.Name("switchToAI")
-    static let sendPrompt = Notification.Name("sendPrompt")
-    static let searchInApp = Notification.Name("searchInApp")
-    static let browserClipboardSearch = Notification.Name("browserClipboardSearch")
-    static let navigateToChat = Notification.Name("navigateToChat")
-    static let sendPromptToActiveChat = Notification.Name("sendPromptToActiveChat")
-    static let showBatchOperation = Notification.Name("showBatchOperation")
-    static let openDirectChat = Notification.Name("openDirectChat")
-    static let smartSearchWithClipboard = Notification.Name("smartSearchWithClipboard")
-    static let appSearchWithClipboard = Notification.Name("appSearchWithClipboard")
-    static let directAppSearch = Notification.Name("directAppSearch")
-    static let browseWithClipboard = Notification.Name("browseWithClipboard")
-    static let loadSearchEngine = Notification.Name("loadSearchEngine")
-    static let activateAppSearch = Notification.Name("activateAppSearch")
-    static let showAIAssistant = Notification.Name("showAIAssistant")
-}
-
 // MARK: - 数据模型
 struct DirectChatRequest {
     let assistantId: String
@@ -3162,67 +3141,6 @@ struct WeChatTabItem: View {
                 isPressed = pressing
             }
         }, perform: {})
-    }
-}
-
-// 临时的SearchView定义，直到文件被正确添加到项目中
-// MARK: - 分类配置结构
-struct CategoryConfig: Identifiable, Codable {
-    let id = UUID()
-    var name: String
-    var color: Color
-    var icon: String
-    var order: Int
-    var isCustom: Bool = false
-
-    // 颜色编码支持
-    enum CodingKeys: String, CodingKey {
-        case name, icon, order, isCustom
-        case colorRed, colorGreen, colorBlue, colorAlpha
-    }
-
-    init(name: String, color: Color, icon: String, order: Int, isCustom: Bool = false) {
-        self.name = name
-        self.color = color
-        self.icon = icon
-        self.order = order
-        self.isCustom = isCustom
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        name = try container.decode(String.self, forKey: .name)
-        icon = try container.decode(String.self, forKey: .icon)
-        order = try container.decode(Int.self, forKey: .order)
-        isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? false
-
-        let red = try container.decode(Double.self, forKey: .colorRed)
-        let green = try container.decode(Double.self, forKey: .colorGreen)
-        let blue = try container.decode(Double.self, forKey: .colorBlue)
-        let alpha = try container.decode(Double.self, forKey: .colorAlpha)
-        color = Color(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
-        try container.encode(icon, forKey: .icon)
-        try container.encode(order, forKey: .order)
-        try container.encode(isCustom, forKey: .isCustom)
-
-        // 正确的颜色编码 - 提取实际的RGB值
-        let uiColor = UIColor(color)
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-
-        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-
-        try container.encode(Double(red), forKey: .colorRed)
-        try container.encode(Double(green), forKey: .colorGreen)
-        try container.encode(Double(blue), forKey: .colorBlue)
-        try container.encode(Double(alpha), forKey: .colorAlpha)
     }
 }
 
@@ -4295,7 +4213,13 @@ struct ChatView: View {
                     isFromUser: false,
                     timestamp: Date(),
                     status: .sent,
-                    actions: []
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: getAIAvatar(),
+                    isFavorited: false,
+                    isEdited: false
                 )
 
                 self.messages.append(aiResponse)
@@ -4328,7 +4252,13 @@ struct ChatView: View {
             isFromUser: false,
             timestamp: Date(),
             status: .sent,
-            actions: []
+            actions: [],
+            isHistorical: false,
+            aiSource: nil,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
         )
 
         messages.append(errorResponse)
@@ -4357,7 +4287,13 @@ struct ChatView: View {
             isFromUser: false,
             timestamp: Date(),
             status: .sent,
-            actions: []
+            actions: [],
+            isHistorical: false,
+            aiSource: nil,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
         )
 
         messages.append(errorResponse)
@@ -4385,7 +4321,13 @@ struct ChatView: View {
             isFromUser: false,
             timestamp: Date(),
             status: .sent,
-            actions: []
+            actions: [],
+            isHistorical: false,
+            aiSource: nil,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
         )
 
         messages.append(errorResponse)
@@ -5682,7 +5624,13 @@ struct MultiAIChatView: View {
             isFromUser: true,
             timestamp: Date(),
             status: .sent,
-            actions: []
+            actions: [],
+            isHistorical: false,
+            aiSource: nil,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
         )
 
         messages.append(userMessage)
@@ -5700,7 +5648,12 @@ struct MultiAIChatView: View {
                     timestamp: Date(),
                     status: .sent,
                     actions: [],
-                    aiSource: contact.name
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
                 )
                 messages.append(aiResponse)
 

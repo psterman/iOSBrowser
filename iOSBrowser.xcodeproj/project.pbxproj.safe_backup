@@ -32,16 +32,11 @@
 		34503EA62E2400B2006CF9FF /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA22E2400A2006CF9FF /* BrowserView.swift */; };
 		34503EA72E2400B3006CF9FF /* MomentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA32E2400A3006CF9FF /* MomentsView.swift */; };
 		34503EA82E2400B4006CF9FF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EA42E2400A4006CF9FF /* SettingsView.swift */; };
-		34503EF12E2400B5006CF9FF /* EnhancedMainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34503EF02E2400B5006CF9FF /* EnhancedMainView.swift */; };
 		34DF2DD92E30632900286CA0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34DF2DC82E305DFD00286CA0 /* WidgetKit.framework */; };
 		34DF2DDA2E30632900286CA0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34DF2DCA2E305DFD00286CA0 /* SwiftUI.framework */; };
 		34DF2DE12E30632D00286CA0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 34DF2DE02E30632D00286CA0 /* Assets.xcassets */; };
 		34DF2DE52E30632D00286CA0 /* iOSBrowserWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 34DF2DD82E30632900286CA0 /* iOSBrowserWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		34DF2DEB2E30967300286CA0 /* iOSBrowserWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF2DEA2E30967300286CA0 /* iOSBrowserWidgets.swift */; };
-		34DF2DEC2E30967400286CA0 /* WidgetDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF2DED2E30967400286CA0 /* WidgetDataManager.swift */; };
-		34DF2DEF2E30967600286CA0 /* Notification+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF2DF02E30967600286CA0 /* Notification+Extensions.swift */; };
-		34DF2DF12E30967700286CA0 /* CategoryConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF2DF22E30967700286CA0 /* CategoryConfig.swift */; };
-		34DF2DF32E30967800286CA0 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF2DF42E30967800286CA0 /* Notifications.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,7 +99,6 @@
 		34503EA22E2400A2006CF9FF /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
 		34503EA32E2400A3006CF9FF /* MomentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentsView.swift; sourceTree = "<group>"; };
 		34503EA42E2400A4006CF9FF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		34503EF02E2400B5006CF9FF /* EnhancedMainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedMainView.swift; sourceTree = "<group>"; };
 		34DF2DC82E305DFD00286CA0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		34DF2DCA2E305DFD00286CA0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		34DF2DD82E30632900286CA0 /* iOSBrowserWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = iOSBrowserWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -112,10 +106,6 @@
 		34DF2DE22E30632D00286CA0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		34DF2DE92E30967200286CA0 /* iOSBrowserWidgetsExtension-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "iOSBrowserWidgetsExtension-Bridging-Header.h"; sourceTree = "<group>"; };
 		34DF2DEA2E30967300286CA0 /* iOSBrowserWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSBrowserWidgets.swift; sourceTree = "<group>"; };
-		34DF2DED2E30967400286CA0 /* WidgetDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDataManager.swift; sourceTree = "<group>"; };
-		34DF2DF02E30967600286CA0 /* Notification+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notification+Extensions.swift"; sourceTree = "<group>"; };
-		34DF2DF22E30967700286CA0 /* CategoryConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryConfig.swift; sourceTree = "<group>"; };
-		34DF2DF42E30967800286CA0 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,12 +179,10 @@
 				34503EA22E2400A2006CF9FF /* BrowserView.swift */,
 				34503EA32E2400A3006CF9FF /* MomentsView.swift */,
 				34503EA42E2400A4006CF9FF /* SettingsView.swift */,
-				34503EF02E2400B5006CF9FF /* EnhancedMainView.swift */,
 				34503E602E2343E4006CF9FF /* Assets.xcassets */,
 				34503E652E2343E4006CF9FF /* Persistence.swift */,
 				34503E672E2343E4006CF9FF /* iOSBrowser.xcdatamodeld */,
 				34503E622E2343E4006CF9FF /* Preview Content */,
-				34DF2DEE2E30967500286CA0 /* Managers */,
 			);
 			path = iOSBrowser;
 			sourceTree = "<group>";
@@ -242,14 +230,6 @@
 				34DF2DE92E30967200286CA0 /* iOSBrowserWidgetsExtension-Bridging-Header.h */,
 			);
 			path = iOSBrowserWidgets;
-			sourceTree = "<group>";
-		};
-		34DF2DEE2E30967500286CA0 /* Managers */ = {
-			isa = PBXGroup;
-			children = (
-				34DF2DED2E30967400286CA0 /* WidgetDataManager.swift */,
-			);
-			path = Managers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -429,7 +409,6 @@
 				34503EA62E2400B2006CF9FF /* BrowserView.swift in Sources */,
 				34503EA72E2400B3006CF9FF /* MomentsView.swift in Sources */,
 				34503EA82E2400B4006CF9FF /* SettingsView.swift in Sources */,
-				34DF2DEC2E30967400286CA0 /* WidgetDataManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -45,127 +45,46 @@ enum AccessibilityMode: String, CaseIterable {
 class AccessibilityManager: ObservableObject {
     static let shared = AccessibilityManager()
     
-    @Published var currentMode: AccessibilityMode = .normal
-    @Published var isSearchFocused: Bool = false
-    
-    private let userDefaults = UserDefaults.standard
-    private let accessibilityModeKey = "accessibility_mode"
+    @Published var isSearchFocused = false
+    @Published var isVoiceOverEnabled = false
+    @Published var isDynamicTypeEnabled = false
+    @Published var preferredContentSizeCategory: ContentSizeCategory = .large
     
     private init() {
-        loadAccessibilityMode()
+        // 监听系统辅助功能变化
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(voiceOverStatusDidChange),
+            name: UIAccessibility.voiceOverStatusDidChangeNotification,
+            object: nil
+        )
+        
+        // 初始化状态
+        isVoiceOverEnabled = UIAccessibility.isVoiceOverRunning
+        isDynamicTypeEnabled = UIApplication.shared.preferredContentSizeCategory != .large
+        preferredContentSizeCategory = UIApplication.shared.preferredContentSizeCategory
     }
     
-    // MARK: - 模式切换
-    func switchMode(_ mode: AccessibilityMode) {
-        currentMode = mode
-        saveAccessibilityMode()
-        print("🔄 切换到\(mode.displayName)")
-    }
-    
-    // MARK: - 获取字体大小
-    func getFontSize(_ baseSize: CGFloat) -> CGFloat {
-        switch currentMode {
-        case .normal:
-            return baseSize
-        case .elderly:
-            return baseSize * 1.3
-        }
-    }
-    
-    // MARK: - 获取搜索框字体大小
-    func getSearchFontSize(_ baseSize: CGFloat) -> CGFloat {
-        if isSearchFocused && currentMode == .elderly {
-            return baseSize * 1.5 // 搜索时进一步放大
-        }
-        return getFontSize(baseSize)
-    }
-    
-    // MARK: - 获取颜色
-    func getTextColor() -> Color {
-        switch currentMode {
-        case .normal:
-            return .primary
-        case .elderly:
-            return .black // 高对比度
-        }
-    }
-    
-    func getSecondaryTextColor() -> Color {
-        switch currentMode {
-        case .normal:
-            return .secondary
-        case .elderly:
-            return .gray // 高对比度
-        }
-    }
-    
-    func getBackgroundColor() -> Color {
-        switch currentMode {
-        case .normal:
-            return Color(.systemBackground)
-        case .elderly:
-            return .white // 高对比度
-        }
-    }
-    
-    func getSearchBackgroundColor() -> Color {
-        switch currentMode {
-        case .normal:
-            return Color(.systemGray6)
-        case .elderly:
-            return Color(.systemGray5) // 更明显的背景
-        }
-    }
-    
-    // MARK: - 获取间距
-    func getSpacing(_ baseSpacing: CGFloat) -> CGFloat {
-        switch currentMode {
-        case .normal:
-            return baseSpacing
-        case .elderly:
-            return baseSpacing * 1.2
-        }
-    }
-    
-    // MARK: - 获取按钮大小
-    func getButtonSize(_ baseSize: CGFloat) -> CGFloat {
-        switch currentMode {
-        case .normal:
-            return baseSize
-        case .elderly:
-            return baseSize * 1.2
-        }
-    }
-    
-    // MARK: - 搜索框焦点状态
     func setSearchFocused(_ focused: Bool) {
         isSearchFocused = focused
-        print("🔍 搜索框焦点状态: \(focused ? "获得焦点" : "失去焦点")")
     }
     
-    // MARK: - 保存和加载设置
-    private func saveAccessibilityMode() {
-        userDefaults.set(currentMode.rawValue, forKey: accessibilityModeKey)
-        userDefaults.synchronize()
-        print("💾 保存适老化模式: \(currentMode.displayName)")
+    @objc private func voiceOverStatusDidChange() {
+        isVoiceOverEnabled = UIAccessibility.isVoiceOverRunning
     }
     
-    private func loadAccessibilityMode() {
-        if let savedMode = userDefaults.string(forKey: accessibilityModeKey),
-           let mode = AccessibilityMode(rawValue: savedMode) {
-            currentMode = mode
-            print("📱 加载适老化模式: \(mode.displayName)")
-        } else {
-            currentMode = .normal
-            print("📱 使用默认适老化模式: 正常模式")
+    func announceSearchResult(_ result: String) {
+        if isVoiceOverEnabled {
+            UIAccessibility.post(notification: .announcement, argument: result)
         }
     }
     
-    // MARK: - 重置为默认设置
-    func resetToDefault() {
-        currentMode = .normal
-        saveAccessibilityMode()
-        print("🔄 重置为默认适老化模式")
+    func getAccessibilityLabel(for text: String, context: String) -> String {
+        return "\(context): \(text)"
+    }
+    
+    func getAccessibilityHint(for action: String) -> String {
+        return "双击以\(action)"
     }
 }
 

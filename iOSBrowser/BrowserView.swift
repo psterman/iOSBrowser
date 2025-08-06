@@ -7,6 +7,8 @@
 
 import SwiftUI
 import UIKit
+import WebKit
+import Foundation
 
 // 全局Prompt数据结构
 struct SavedPrompt: Identifiable, Codable, Equatable {
@@ -106,6 +108,15 @@ struct BrowserView: View {
     @State private var showingFloatingPrompt = false
     @State private var showingPromptManager = false
     @State private var showingSearchEngineSelector = false
+    
+    // 新增功能状态
+    @State private var showingExpandedInput = false
+    @State private var expandedUrlText = ""
+    @State private var showingAIChat = false
+    @State private var selectedAI = "deepseek"
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    @State private var favoritePages: Set<String> = []
 
     // 边缘滑动返回手势状态
     @State private var edgeSwipeOffset: CGFloat = 0
@@ -188,21 +199,21 @@ struct BrowserView: View {
                                         .frame(width: 12, height: 12)
                                         .rotationEffect(.degrees(showingSearchEngineSelector ? 180 : 0))
                                 }
-                                .frame(minWidth: 50, minHeight: 40)
+                                .frame(width: 44, height: 44)
                                 .padding(.horizontal, 8)
                                 .background(Color(.systemGray6))
                                 .cornerRadius(10)
                             }
 
-                            HStack {
-
+                            HStack(spacing: 12) {
+                                // 搜索输入框
                                 TextField("请输入网址或搜索关键词", text: $urlText)
                                     .textFieldStyle(PlainTextFieldStyle())
                                     .onSubmit {
                                         loadURL()
                                     }
                                     .onTapGesture {
-                                        
+                                        showExpandedInput()
                                     }
                                     .onReceive(viewModel.$urlString) { newURL in
                                         // 只有当用户没有在编辑时才更新地址栏
@@ -216,33 +227,31 @@ struct BrowserView: View {
                                         }
                                     }
 
-                                HStack(spacing: 8) {
+                                // 按钮组
+                                HStack(spacing: 12) {
                                     // 粘贴按钮
                                     Button(action: {
-                                        pasteFromClipboard()
+                                        showPasteMenu()
                                     }) {
                                         Image(systemName: "doc.on.clipboard")
                                             .foregroundColor(.green)
-                                            .font(.system(size: 16))
+                                            .font(.system(size: 18))
+                                            .frame(width: 44, height: 44)
+                                            .background(Color(.systemGray5))
+                                            .cornerRadius(8)
                                     }
 
                                     if !urlText.isEmpty {
-                                        // 前往按钮
-                                        Button(action: {
-                                            loadURL()
-                                        }) {
-                                            Image(systemName: "arrow.right.circle.fill")
-                                                .foregroundColor(.green)
-                                                .font(.system(size: 16))
-                                        }
-
                                         // 清除按钮
                                         Button(action: {
                                             urlText = ""
                                         }) {
                                             Image(systemName: "xmark.circle.fill")
                                                 .foregroundColor(.gray)
-                                                .font(.system(size: 16))
+                                                .font(.system(size: 18))
+                                                .frame(width: 44, height: 44)
+                                                .background(Color(.systemGray5))
+                                                .cornerRadius(8)
                                         }
                                     }
                                 }
@@ -251,14 +260,6 @@ struct BrowserView: View {
                             .padding(.vertical, 10)
                             .background(Color(.systemGray6))
                             .cornerRadius(10)
-
-                            Button(action: {
-                                showingBookmarks.toggle()
-                            }) {
-                                Image(systemName: "book.fill")
-                                    .foregroundColor(.green)
-                                    .font(.system(size: 18))
-                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
@@ -301,13 +302,30 @@ struct BrowserView: View {
 
                             Spacer()
                             
+                            // AI对话按钮
                             Button(action: {
-                                addToBookmarks()
+                                showAIChat()
                             }) {
-                                let isBookmarked = viewModel.urlString != nil && bookmarks.contains(viewModel.urlString!)
+                                Image(systemName: "brain.head.profile")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(.green)
+                            }
+                            
+                            Button(action: {
+                                toggleFavorite()
+                            }) {
+                                let isBookmarked = viewModel.urlString != nil && favoritePages.contains(viewModel.urlString!)
                                 Image(systemName: isBookmarked ? "star.fill" : "star")
                                     .font(.system(size: 18, weight: .medium))
                                     .foregroundColor(isBookmarked ? .yellow : .green)
+                            }
+                            
+                            Button(action: {
+                                showingBookmarks.toggle()
+                            }) {
+                                Image(systemName: "book.fill")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(.green)
                             }
                             
                             Button(action: {
@@ -395,21 +413,44 @@ struct BrowserView: View {
                 )
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showingBookmarks) {
+                BookmarksView(bookmarks: $bookmarks, onBookmarkSelected: { bookmark in
+                    urlText = bookmark
+                    showingBookmarks = false
+                    loadURL()
+                })
+            }
+            .sheet(isPresented: $showingExpandedInput) {
+                ExpandedInputView(
+                    urlText: $expandedUrlText,
+                    onConfirm: {
+                        urlText = expandedUrlText
+                        showingExpandedInput = false
+                        loadURL()
+                    },
+                    onCancel: {
+                        showingExpandedInput = false
+                    }
+                )
+            }
+            .sheet(isPresented: $showingAIChat) {
+                BrowserAIChatView(
+                    selectedAI: $selectedAI,
+                    initialMessage: urlText
+                )
+            }
+            .alert("提示", isPresented: $showingAlert) {
+                Button("确定", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
             .onAppear {
-                // 默认显示自定义首页
-                showingCustomHomePage = true
-                loadBookmarks()
                 setupNotificationObservers()
+                loadBookmarks()
+                loadFavorites()
             }
             .onDisappear {
                 removeNotificationObservers()
-            }
-            .sheet(isPresented: $showingBookmarks) {
-                BookmarksView(bookmarks: $bookmarks) { url in
-                    urlText = url
-                    loadURL()
-                    showingBookmarks = false
-                }
             }
         }
         .overlay(
@@ -491,21 +532,17 @@ struct BrowserView: View {
                 case "bing":
                     urlString = selectedEngine.url + urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
                 case "deepseek", "kimi", "doubao", "wenxin", "yuanbao", "chatglm", "tongyi", "claude", "chatgpt", "metaso", "nano":
-                    // AI聊天类搜索引擎，如果用户输入了搜索词，则搜索；否则跳转到主页
-                    if !trimmedText.isEmpty && !trimmedText.contains(".") {
-                        // 对于AI搜索引擎，直接跳转到主页让用户输入问题
-                        urlString = selectedEngine.url
-                    } else {
-                        urlString = selectedEngine.url
-                    }
+                    // AI聊天类搜索引擎，直接跳转到主页
+                    urlString = selectedEngine.url
                 default:
                     urlString = "https://www.baidu.com/s?wd=" + urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
                 }
             }
         }
 
-        viewModel.loadUrl(urlString)
+        // 直接加载URL，不显示中间页面
         showingCustomHomePage = false
+        viewModel.loadUrl(urlString)
     }
     
     private func addToBookmarks() {
@@ -516,11 +553,15 @@ struct BrowserView: View {
         }
 
         if !bookmarks.contains(currentURL) {
+            // 添加到书签
             bookmarks.append(currentURL)
             saveBookmarks()
             showAlert(title: "收藏成功", message: "页面已添加到书签")
         } else {
-            showAlert(title: "已收藏", message: "该页面已在书签中")
+            // 从书签中移除
+            bookmarks.removeAll { $0 == currentURL }
+            saveBookmarks()
+            showAlert(title: "取消收藏", message: "页面已从书签中移除")
         }
     }
 
@@ -567,12 +608,14 @@ struct BrowserView: View {
         showingCustomHomePage = true
         urlText = ""
         viewModel.urlString = ""
+        // 确保WebView加载空白页面
+        viewModel.loadUrl("about:blank")
     }
 
     // MARK: - 通知处理
     private func setupNotificationObservers() {
         NotificationCenter.default.addObserver(
-            forName: .browserClipboardSearch,
+            forName: Notification.Name("browserClipboardSearch"),
             object: nil,
             queue: .main
         ) { notification in
@@ -584,7 +627,7 @@ struct BrowserView: View {
         }
 
         NotificationCenter.default.addObserver(
-            forName: .performSearch,
+            forName: Notification.Name("performSearch"),
             object: nil,
             queue: .main
         ) { notification in
@@ -594,12 +637,22 @@ struct BrowserView: View {
         }
 
         NotificationCenter.default.addObserver(
-            forName: .switchSearchEngine,
+            forName: Notification.Name("switchSearchEngine"),
             object: nil,
             queue: .main
         ) { notification in
             if let engineId = notification.object as? String {
                 switchToSearchEngine(engineId: engineId)
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name.pasteToBrowserInput,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let content = notification.object as? String {
+                urlText = content
             }
         }
     }
@@ -641,6 +694,114 @@ struct BrowserView: View {
         // 这里可以实现切换搜索引擎的逻辑
         // 例如更新selectedSearchEngine状态
     }
+
+    private func showExpandedInput() {
+        expandedUrlText = urlText
+        showingExpandedInput = true
+    }
+
+    private func showPasteMenu() {
+        let pasteAction = UIAction(title: "粘贴", image: UIImage(systemName: "doc.on.clipboard")) { _ in
+            self.pasteFromClipboard()
+        }
+        let pasteToInputAction = UIAction(title: "粘贴到输入框", image: UIImage(systemName: "doc.on.doc")) { _ in
+            self.pasteToInput()
+        }
+        let pasteToSearchEngineAction = UIAction(title: "粘贴到搜索引擎", image: UIImage(systemName: "magnifyingglass")) { _ in
+            self.pasteToSearchEngine()
+        }
+
+        let menu = UIMenu(title: "粘贴选项", children: [pasteAction, pasteToInputAction, pasteToSearchEngineAction])
+        // 使用AlertController来显示菜单选项
+        let alertController = UIAlertController(title: "粘贴选项", message: nil, preferredStyle: .actionSheet)
+        
+        alertController.addAction(UIAlertAction(title: "粘贴", style: .default) { _ in
+            self.pasteFromClipboard()
+        })
+        
+        alertController.addAction(UIAlertAction(title: "粘贴到输入框", style: .default) { _ in
+            self.pasteToInput()
+        })
+        
+        alertController.addAction(UIAlertAction(title: "粘贴到搜索引擎", style: .default) { _ in
+            self.pasteToSearchEngine()
+        })
+        
+        alertController.addAction(UIAlertAction(title: "取消", style: .cancel))
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            windowScene.windows.first?.rootViewController?.present(alertController, animated: true)
+        }
+    }
+
+    private func pasteToInput() {
+        NotificationCenter.default.post(name: .pasteToBrowserInput, object: expandedUrlText)
+        showingExpandedInput = false
+    }
+
+    private func pasteToSearchEngine() {
+        let trimmedText = expandedUrlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedText.isEmpty {
+            return
+        }
+
+        let selectedEngine = searchEngines[selectedSearchEngine]
+        var urlString = trimmedText
+
+        if !urlString.hasPrefix("http://") && !urlString.hasPrefix("https://") {
+            if urlString.contains(".") && !urlString.contains(" ") {
+                urlString = "https://" + urlString
+            } else {
+                switch selectedEngine.id {
+                case "baidu":
+                    urlString = selectedEngine.url + urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+                case "bing":
+                    urlString = selectedEngine.url + urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+                case "deepseek", "kimi", "doubao", "wenxin", "yuanbao", "chatglm", "tongyi", "claude", "chatgpt", "metaso", "nano":
+                    urlString = selectedEngine.url
+                default:
+                    urlString = "https://www.baidu.com/s?wd=" + urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
+                }
+            }
+        }
+
+        showingCustomHomePage = false
+        viewModel.loadUrl(urlString)
+        showingExpandedInput = false
+    }
+
+    private func showAIChat() {
+        showingAIChat = true
+    }
+    
+    // MARK: - 收藏功能
+    private func loadFavorites() {
+        if let savedFavorites = UserDefaults.standard.array(forKey: "favoritePages") as? [String] {
+            favoritePages = Set(savedFavorites)
+        }
+    }
+    
+    private func saveFavorites() {
+        UserDefaults.standard.set(Array(favoritePages), forKey: "favoritePages")
+    }
+    
+    private func toggleFavorite() {
+        guard let currentURL = viewModel.urlString, !currentURL.isEmpty else {
+            alertMessage = "无法收藏，当前页面无效"
+            showingAlert = true
+            return
+        }
+        
+        if favoritePages.contains(currentURL) {
+            favoritePages.remove(currentURL)
+            alertMessage = "已取消收藏当前页面"
+        } else {
+            favoritePages.insert(currentURL)
+            alertMessage = "已收藏当前页面"
+        }
+        showingAlert = true
+        saveFavorites()
+    }
 }
 
 struct BookmarksView: View {
@@ -660,7 +821,7 @@ struct BookmarksView: View {
                                 .font(.headline)
                                 .foregroundColor(.primary)
                             
-                            Text(bookmark)
+                            Text(extractDomain(from: bookmark))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
@@ -789,50 +950,7 @@ struct CustomHomePage: View {
     var body: some View {
         VStack(spacing: 24) {
 
-            // 搜索框
-            VStack(spacing: 16) {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-
-                    TextField("输入关键词开始搜索，或选择下方的智能助手", text: $searchQuery)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .onSubmit {
-                            if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                onSearch(searchQuery)
-                            }
-                        }
-
-                    if !searchQuery.isEmpty {
-                        Button(action: {
-                            searchQuery = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-
-                Button(action: {
-                    if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        onSearch(searchQuery)
-                    }
-                }) {
-                    Text("搜索")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.green)
-                        .cornerRadius(12)
-                }
-                .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .padding(.horizontal, 24)
+            // 移除重复的搜索框，只使用顶部的搜索栏
 
             // 智能助手选项
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 2), spacing: 16) {
@@ -1396,6 +1514,8 @@ struct PromptManagerView: View {
     @State private var showingNameInput = false
     @State private var newPromptName = ""
     @State private var editingPrompt: SavedPrompt?
+    @State private var showingPasteAlert = false
+    @State private var pasteAlertMessage = ""
 
     var body: some View {
         NavigationView {
@@ -1471,6 +1591,18 @@ struct PromptManagerView: View {
                                             .cornerRadius(8)
                                     }
 
+                                    Button(action: {
+                                        pasteToInput(prompt.content)
+                                    }) {
+                                        Text("粘贴")
+                                            .font(.caption)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 4)
+                                            .background(Color.blue)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(8)
+                                    }
+
                                     Spacer()
                                 }
                             }
@@ -1491,12 +1623,361 @@ struct PromptManagerView: View {
                     presentationMode.wrappedValue.dismiss()
                 }
             )
+            .alert("粘贴成功", isPresented: $showingPasteAlert) {
+                Button("确定") { }
+            } message: {
+                Text(pasteAlertMessage)
+            }
         }
+    }
+    
+    private func pasteToInput(_ content: String) {
+        // 发送通知给浏览器输入框，实现粘贴功能
+        NotificationCenter.default.post(name: .pasteToBrowserInput, object: content)
+        pasteAlertMessage = "已粘贴到浏览器输入框"
+        showingPasteAlert = true
     }
 }
 
 struct BrowserView_Previews: PreviewProvider {
     static var previews: some View {
         BrowserView(viewModel: WebViewModel())
+    }
+}
+
+// MARK: - 扩大输入界面
+struct ExpandedInputView: View {
+    @Binding var urlText: String
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+    @FocusState private var isTextFieldFocused: Bool
+    @Environment(\.presentationMode) var presentationMode
+    
+    // 快速输入建议
+    private let suggestions = [
+        "https://www.baidu.com",
+        "https://www.google.com", 
+        "https://www.bing.com",
+        "https://chat.openai.com",
+        "https://chat.deepseek.com",
+        "https://kimi.moonshot.cn"
+    ]
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 大输入框
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("网址或搜索关键词")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    TextField("请输入网址或搜索关键词", text: $urlText, axis: .vertical)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .lineLimit(3...6)
+                        .focused($isTextFieldFocused)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, 20)
+                
+                // 快速输入建议
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("快速访问")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 20)
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                        ForEach(suggestions, id: \.self) { suggestion in
+                            Button(action: { 
+                                urlText = suggestion
+                            }) {
+                                Text(suggestion)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color(.systemGray6))
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                
+                Spacer()
+                
+                // 底部按钮
+                HStack(spacing: 16) {
+                    Button(action: {
+                        onCancel()
+                    }) {
+                        Text("取消")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(.systemGray6))
+                            )
+                    }
+                    
+                    Button(action: {
+                        onConfirm()
+                    }) {
+                        Text("确定")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.green)
+                            )
+                    }
+                    .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+            .navigationTitle("输入网址")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("完成") {
+                    onConfirm()
+                }
+                .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            )
+        }
+        .onAppear { 
+            isTextFieldFocused = true
+        }
+    }
+}
+
+// MARK: - 浏览器AI对话界面
+struct BrowserAIChatView: View {
+    @Binding var selectedAI: String
+    let initialMessage: String
+    @Environment(\.presentationMode) var presentationMode
+    
+    @State private var messageText = ""
+    @State private var messages: [BrowserChatMessage] = []
+    @State private var isLoading = false
+    @State private var showingPromptPicker = false
+    
+    // 支持API的AI列表
+    private let aiList = [
+        ("deepseek", "DeepSeek", "brain.head.profile", Color.purple),
+        ("qwen", "通义千问", "cloud.fill", Color.cyan),
+        ("chatglm", "智谱清言", "lightbulb.fill", Color.yellow),
+        ("moonshot", "Kimi", "moon.stars.fill", Color.orange),
+        ("claude", "Claude", "c.circle.fill", Color.blue),
+        ("gpt", "ChatGPT", "g.circle.fill", Color.green)
+    ]
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // AI选择栏
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(aiList, id: \.0) { ai in
+                            Button(action: {
+                                selectedAI = ai.0
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: ai.2)
+                                        .foregroundColor(selectedAI == ai.0 ? .white : ai.3)
+                                        .font(.system(size: 16, weight: .medium))
+                                    
+                                    Text(ai.1)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(selectedAI == ai.0 ? .white : .primary)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(selectedAI == ai.0 ? ai.3 : Color(.systemGray6))
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.vertical, 8)
+                .background(Color(.systemBackground))
+                
+                // 聊天消息列表
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(messages) { message in
+                            BrowserChatMessageView(message: message)
+                        }
+                        
+                        if isLoading {
+                            HStack {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("AI正在思考...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding()
+                        }
+                    }
+                    .padding()
+                }
+                .background(Color(.systemGroupedBackground))
+                
+                // 输入区域
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        // 智能提示按钮
+                        Button(action: {
+                            showingPromptPicker = true
+                        }) {
+                            Image(systemName: "wand.and.stars")
+                                .foregroundColor(.green)
+                                .font(.system(size: 18))
+                        }
+                        
+                        // 粘贴按钮
+                        Button(action: {
+                            if let clipboardText = UIPasteboard.general.string {
+                                messageText = clipboardText
+                            }
+                        }) {
+                            Image(systemName: "doc.on.clipboard")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 18))
+                        }
+                        
+                        // 输入框
+                        TextField("输入消息...", text: $messageText, axis: .vertical)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .lineLimit(1...4)
+                        
+                        // 发送按钮
+                        Button(action: sendMessage) {
+                            Image(systemName: "paperplane.fill")
+                                .foregroundColor(messageText.isEmpty ? .gray : .green)
+                                .font(.system(size: 18))
+                        }
+                        .disabled(messageText.isEmpty || isLoading)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+                .background(Color(.systemBackground))
+            }
+            .navigationTitle("AI对话")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("完成") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+            .sheet(isPresented: $showingPromptPicker) {
+                PromptPickerView { prompt in
+                    messageText = prompt
+                }
+            }
+        }
+        .onAppear {
+            if !initialMessage.isEmpty {
+                messageText = initialMessage
+            }
+        }
+    }
+    
+    private func sendMessage() {
+        let trimmedMessage = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedMessage.isEmpty else { return }
+        
+        // 添加用户消息
+        let userMessage = BrowserChatMessage(
+            id: UUID().uuidString,
+            content: trimmedMessage,
+            isUser: true,
+            timestamp: Date()
+        )
+        messages.append(userMessage)
+        
+        // 清空输入框
+        messageText = ""
+        
+        // 模拟AI回复
+        isLoading = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let aiMessage = BrowserChatMessage(
+                id: UUID().uuidString,
+                content: "这是来自\(getAIName(selectedAI))的回复：\n\n\(trimmedMessage)",
+                isUser: false,
+                timestamp: Date()
+            )
+            messages.append(aiMessage)
+            isLoading = false
+        }
+    }
+    
+    private func getAIName(_ aiId: String) -> String {
+        return aiList.first { $0.0 == aiId }?.1 ?? aiId
+    }
+}
+
+// MARK: - 聊天消息模型
+struct BrowserChatMessage: Identifiable {
+    let id: String
+    let content: String
+    let isUser: Bool
+    let timestamp: Date
+}
+
+// MARK: - 聊天消息视图
+struct BrowserChatMessageView: View {
+    let message: BrowserChatMessage
+    
+    var body: some View {
+        HStack {
+            if message.isUser {
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(message.content)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(16)
+                    
+                    Text(message.timestamp, style: .time)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(message.content)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color(.systemGray5))
+                        .foregroundColor(.primary)
+                        .cornerRadius(16)
+                    
+                    Text(message.timestamp, style: .time)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+        }
     }
 }

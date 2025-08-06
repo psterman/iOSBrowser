@@ -176,25 +176,25 @@ echo ""
 
 # 7. 检查主应用集成
 echo "📱 检查主应用集成..."
-if grep -q "EnhancedContentView" iOSBrowser/iOSBrowserApp.swift; then
+if grep -q "EnhancedMainView" iOSBrowser/iOSBrowserApp.swift; then
     echo "✅ 主应用已集成增强视图"
 else
     echo "❌ 主应用未集成增强视图"
 fi
 
-if grep -q "EnhancedContentView" iOSBrowser/EnhancedContentView.swift; then
+if grep -q "EnhancedMainView" iOSBrowser/EnhancedMainView.swift; then
     echo "✅ 增强主视图已实现"
 else
     echo "❌ 增强主视图未实现"
 fi
 
-if grep -q "AggregatedSearchView" iOSBrowser/EnhancedContentView.swift; then
+if grep -q "AggregatedSearchView" iOSBrowser/EnhancedMainView.swift; then
     echo "✅ 聚合搜索已集成到主视图"
 else
     echo "❌ 聚合搜索未集成到主视图"
 fi
 
-if grep -q "EnhancedAIChatView" iOSBrowser/EnhancedContentView.swift; then
+if grep -q "EnhancedAIChatView" iOSBrowser/EnhancedMainView.swift; then
     echo "✅ 增强AI聊天已集成到主视图"
 else
     echo "❌ 增强AI聊天未集成到主视图"
@@ -273,7 +273,7 @@ count_checks "HTTPSManager" "iOSBrowser/HTTPSManager.swift"
 count_checks "TLSv12" "iOSBrowser/HTTPSManager.swift"
 count_checks "DataEncryptionManager" "iOSBrowser/DataEncryptionManager.swift"
 count_checks "AES.GCM" "iOSBrowser/DataEncryptionManager.swift"
-count_checks "EnhancedContentView" "iOSBrowser/iOSBrowserApp.swift"
+count_checks "EnhancedMainView" "iOSBrowser/iOSBrowserApp.swift"
 
 echo "总检查项: $total_checks"
 echo "通过检查: $passed_checks"
