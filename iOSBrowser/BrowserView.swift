@@ -95,6 +95,7 @@ struct BrowserSearchEngine {
 
 struct BrowserView: View {
     @ObservedObject var viewModel: WebViewModel
+
     @State private var urlText: String = ""
     @State private var showingBookmarks = false
     @State private var showingSearchEngines = false
@@ -195,10 +196,13 @@ struct BrowserView: View {
 
                             HStack {
 
-                                TextField("搜索关键词或输入网址", text: $urlText)
+                                TextField("请输入网址或搜索关键词", text: $urlText)
                                     .textFieldStyle(PlainTextFieldStyle())
                                     .onSubmit {
                                         loadURL()
+                                    }
+                                    .onTapGesture {
+                                        
                                     }
                                     .onReceive(viewModel.$urlString) { newURL in
                                         // 只有当用户没有在编辑时才更新地址栏

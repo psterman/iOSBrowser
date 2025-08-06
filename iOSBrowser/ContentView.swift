@@ -1769,6 +1769,180 @@ struct UnifiedAppConfigView: View {
     }
 }
 
+struct UnifiedSearchEngineConfigView: View {
+    @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
+    @State private var selectedCategory = "国内搜索"
+    
+    // 搜索引擎数据
+    private let domesticEngines = [
+        ("baidu", "百度", "magnifyingglass", Color.green),
+        ("sogou", "搜狗", "magnifyingglass.circle", Color.green),
+        ("360", "360搜索", "magnifyingglass.circle.fill", Color.green),
+        ("bing", "必应", "magnifyingglass.circle", Color.blue),
+        ("google", "Google", "magnifyingglass", Color.blue)
+    ]
+    
+    private let internationalEngines = [
+        ("google", "Google", "magnifyingglass", Color.blue),
+        ("bing", "必应", "magnifyingglass.circle", Color.blue),
+        ("duckduckgo", "DuckDuckGo", "magnifyingglass", Color.blue),
+        ("yahoo", "Yahoo", "magnifyingglass.circle", Color.blue)
+    ]
+    
+    private let aiEngines = [
+        ("deepseek", "DeepSeek", "brain.head.profile", Color.purple),
+        ("kimi", "Kimi", "moon.stars", Color.purple),
+        ("doubao", "豆包", "bubble.left.and.bubble.right", Color.purple),
+        ("wenxin", "文心一言", "doc.text", Color.purple),
+        ("chatglm", "智谱清言", "lightbulb.fill", Color.purple),
+        ("tongyi", "通义千问", "cloud.fill", Color.purple),
+        ("claude", "Claude", "sparkles", Color.purple),
+        ("chatgpt", "ChatGPT", "bubble.left.and.bubble.right.fill", Color.purple)
+    ]
+    
+    private let professionalEngines = [
+        ("github", "GitHub", "chevron.left.forwardslash.chevron.right", Color.themeDarkGreen),
+        ("stackoverflow", "Stack Overflow", "questionmark.square.fill", Color.themeLightGreen),
+        ("arxiv", "arXiv", "doc.text.fill", Color.themeGreen),
+        ("pubmed", "PubMed", "cross.case.fill", Color.themeSuccessGreen),
+        ("ieee", "IEEE Xplore", "bolt.circle.fill", Color.themeDarkGreen)
+    ]
+    
+    private var searchEngineCategories: [String: [(String, String, String, Color)]] {
+        [
+            "国内搜索": domesticEngines,
+            "国际搜索": internationalEngines,
+            "AI搜索": aiEngines,
+            "专业搜索": professionalEngines
+        ]
+    }
+    
+    private var categories: [String] {
+        Array(searchEngineCategories.keys).sorted()
+    }
+    
+    private var currentEngines: [(String, String, String, Color)] {
+        searchEngineCategories[selectedCategory] ?? []
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题和统计
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("搜索引擎选择")
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("可用的搜索引擎")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Text("当前已选择: \(dataSyncCenter.selectedSearchEngines.count) 个")
+                            .font(.caption)
+                            .foregroundColor(.themeGreen)
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        dataSyncCenter.refreshAllData()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.themeGreen)
+                            .font(.title3)
+                    }
+                }
+
+                Text("配置将同步到桌面小组件")
+                    .font(.caption)
+                    .foregroundColor(.green)
+            }
+            .padding(.horizontal)
+            .padding(.top)
+            
+            // 分类选择器
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(categories, id: \.self) { category in
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedCategory = category
+                            }
+                        }) {
+                            Text(category)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(selectedCategory == category ? .white : .blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(selectedCategory == category ? Color.blue : Color.blue.opacity(0.1))
+                                )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.vertical, 8)
+
+            // 搜索引擎网格
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                    ForEach(currentEngines, id: \.0) { engine in
+                        Button(action: {
+                            print("🔄 点击搜索引擎: \(engine.1) (\(engine.0))")
+                            toggleSearchEngine(engine.0)
+                        }) {
+                            VStack(spacing: 8) {
+                                Image(systemName: engine.2)
+                                    .font(.system(size: 24))
+                                    .foregroundColor(engine.3)
+
+                                Text(engine.1)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .lineLimit(1)
+                                    .foregroundColor(.primary)
+                            }
+                            .frame(height: 80)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(dataSyncCenter.selectedSearchEngines.contains(engine.0) ? engine.3.opacity(0.2) : Color(.systemGray6))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(dataSyncCenter.selectedSearchEngines.contains(engine.0) ? engine.3 : Color.clear, lineWidth: 2)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+        .onAppear {
+            dataSyncCenter.refreshAllData()
+            dataSyncCenter.refreshUserSelections()
+            dataSyncCenter.forceUIRefresh()
+        }
+    }
+    
+    private func toggleSearchEngine(_ engineId: String) {
+        var engines = dataSyncCenter.selectedSearchEngines
+        if engines.contains(engineId) {
+            engines.removeAll { $0 == engineId }
+        } else {
+            engines.append(engineId)
+        }
+        dataSyncCenter.selectedSearchEngines = engines
+    }
+}
+
 struct UnifiedAIConfigView: View {
     @ObservedObject private var dataSyncCenter = DataSyncCenter.shared
     @StateObject private var apiManager = APIConfigManager.shared

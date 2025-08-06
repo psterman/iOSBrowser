@@ -10,6 +10,7 @@ import UIKit
 
 struct SearchView: View {
     @EnvironmentObject var deepLinkHandler: DeepLinkHandler
+    @StateObject private var accessibilityManager = AccessibilityManager.shared
     @State private var searchText = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -47,6 +48,9 @@ struct SearchView: View {
                             .textFieldStyle(PlainTextFieldStyle())
                             .onSubmit {
                                 // 可以添加默认搜索行为
+                            }
+                            .onTapGesture {
+                                accessibilityManager.setSearchFocused(true)
                             }
                         
                         if !searchText.isEmpty {
