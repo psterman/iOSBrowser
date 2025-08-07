@@ -10,289 +10,6 @@ import UIKit
 import WebKit
 import Foundation
 
-// MARK: - AI对话相关类型定义
-
-// AI对话消息
-struct AIChatMessage: Identifiable, Codable {
-    let id = UUID()
-    let content: String
-    let isUser: Bool
-    let timestamp: Date
-    let aiService: String
-}
-
-// AI对话会话
-struct AIChatSession: Identifiable, Codable {
-    let id = UUID()
-    let aiService: String
-    let title: String
-    let messages: [AIChatMessage]
-    let createdAt: Date
-    let lastUpdated: Date
-}
-
-// AI对话管理器
-class AIChatManager: ObservableObject {
-    static let shared = AIChatManager()
-    
-    @Published var currentSession: AIChatSession?
-    @Published var chatSessions: [AIChatSession] = []
-    @Published var isChatActive = false
-    
-    private let userDefaults = UserDefaults.standard
-    private let chatSessionsKey = "AIChatSessions"
-    
-    init() {
-        loadChatSessions()
-    }
-    
-    // MARK: - 会话管理
-    
-    func startNewChat(with aiService: AIService) {
-        let newSession = AIChatSession(
-            aiService: aiService.id,
-            title: "与 \(aiService.name) 的对话",
-            messages: [],
-            createdAt: Date(),
-            lastUpdated: Date()
-        )
-        
-        currentSession = newSession
-        isChatActive = true
-        
-        // 添加到会话列表
-        chatSessions.insert(newSession, at: 0)
-        saveChatSessions()
-    }
-    
-    func continueChat(session: AIChatSession) {
-        currentSession = session
-        isChatActive = true
-    }
-    
-    func closeChat() {
-        isChatActive = false
-        currentSession = nil
-    }
-    
-    // MARK: - 消息管理
-    
-    func sendMessage(_ content: String) {
-        guard let session = currentSession, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        
-        let userMessage = AIChatMessage(
-            content: content,
-            isUser: true,
-            timestamp: Date(),
-            aiService: session.aiService
-        )
-        
-        // 添加用户消息
-        var updatedMessages = session.messages
-        updatedMessages.append(userMessage)
-        
-        // 创建AI回复（模拟）
-        let aiReply = AIChatMessage(
-            content: generateAIResponse(for: content, aiService: session.aiService),
-            isUser: false,
-            timestamp: Date(),
-            aiService: session.aiService
-        )
-        
-        updatedMessages.append(aiReply)
-        
-        // 更新会话
-        let updatedSession = AIChatSession(
-            aiService: session.aiService,
-            title: session.title,
-            messages: updatedMessages,
-            createdAt: session.createdAt,
-            lastUpdated: Date()
-        )
-        
-        currentSession = updatedSession
-        
-        // 更新会话列表
-        if let index = chatSessions.firstIndex(where: { $0.id == session.id }) {
-            chatSessions[index] = updatedSession
-        }
-        
-        saveChatSessions()
-    }
-    
-    // MARK: - 会话统计
-    
-    func getSessionCount(for aiService: String) -> Int {
-        return chatSessions.filter { $0.aiService == aiService }.count
-    }
-    
-    func getRecentSessions(for aiService: String, limit: Int = 5) -> [AIChatSession] {
-        return Array(chatSessions.filter { $0.aiService == aiService }.prefix(limit))
-    }
-    
-    func deleteSession(_ session: AIChatSession) {
-        chatSessions.removeAll { $0.id == session.id }
-        if currentSession?.id == session.id {
-            currentSession = nil
-            isChatActive = false
-        }
-        saveChatSessions()
-    }
-    
-    // MARK: - 数据持久化
-    
-    private func saveChatSessions() {
-        if let data = try? JSONEncoder().encode(chatSessions) {
-            userDefaults.set(data, forKey: chatSessionsKey)
-        }
-    }
-    
-    private func loadChatSessions() {
-        if let data = userDefaults.data(forKey: chatSessionsKey),
-           let sessions = try? JSONDecoder().decode([AIChatSession].self, from: data) {
-            chatSessions = sessions
-        }
-    }
-    
-    // MARK: - 辅助方法
-    
-    private func generateAIResponse(for content: String, aiService: String) -> String {
-        // 模拟AI回复
-        let responses = [
-            "我理解您的问题，让我为您详细解答...",
-            "这是一个很有趣的问题，我的看法是...",
-            "根据我的分析，建议您...",
-            "我可以帮您解决这个问题，具体方法是...",
-            "您提到的这个观点很有见地，我想补充一下..."
-        ]
-        
-        return responses.randomElement() ?? "我明白了，请继续。"
-    }
-}
-
-// MARK: - AI对话视图
-struct AIChatView: View {
-    @ObservedObject var chatManager = AIChatManager.shared
-    @State private var messageText = ""
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                if let session = chatManager.currentSession {
-                    // 对话界面
-                    VStack(spacing: 0) {
-                        // 消息列表
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                LazyVStack(spacing: 12) {
-                                    ForEach(session.messages) { message in
-                                        MessageBubble(message: message)
-                                            .id(message.id)
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                            }
-                            .onChange(of: session.messages.count) { _ in
-                                if let lastMessage = session.messages.last {
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // 输入区域
-                        VStack(spacing: 0) {
-                            Divider()
-                            
-                            HStack(spacing: 12) {
-                                TextField("输入消息...", text: $messageText)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .onSubmit {
-                                        sendMessage()
-                                    }
-                                
-                                Button(action: sendMessage) {
-                                    Image(systemName: "paperplane.fill")
-                                        .foregroundColor(.white)
-                                        .frame(width: 32, height: 32)
-                                        .background(
-                                            Circle()
-                                                .fill(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
-                                        )
-                                }
-                                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                        }
-                        .background(Color(.systemBackground))
-                    }
-                } else {
-                    // 空状态
-                    VStack(spacing: 24) {
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 64))
-                            .foregroundColor(.gray)
-                        
-                        Text("开始新的AI对话")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("选择一个AI服务开始对话")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                }
-            }
-            .navigationTitle(chatManager.currentSession?.title ?? "AI对话")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                trailing: Button("关闭") {
-                    chatManager.closeChat()
-                }
-            )
-        }
-    }
-    
-    private func sendMessage() {
-        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedText.isEmpty {
-            chatManager.sendMessage(trimmedText)
-            messageText = ""
-        }
-    }
-}
-
-// MARK: - 消息气泡
-struct MessageBubble: View {
-    let message: AIChatMessage
-    
-    var body: some View {
-        HStack {
-            if message.isUser {
-                Spacer()
-                Text(message.content)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(18)
-            } else {
-                Text(message.content)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color(.systemGray5))
-                    .foregroundColor(.primary)
-                    .cornerRadius(18)
-                Spacer()
-            }
-        }
-    }
-}
-
 // 全局Prompt数据结构
 struct SavedPrompt: Identifiable, Codable, Equatable {
     let id: UUID
@@ -378,15 +95,6 @@ struct BrowserSearchEngine {
     let color: Color
 }
 
-struct AIService {
-    let id: String
-    let name: String
-    let url: String
-    let icon: String
-    let color: Color
-    let category: String
-}
-
 struct BrowserView: View {
     @ObservedObject var viewModel: WebViewModel
 
@@ -399,11 +107,9 @@ struct BrowserView: View {
     @State private var showingFloatingPrompt = false
     @State private var showingPromptManager = false
     
-
-    
-    // 右侧抽屉式AI对话列表状态
-    @State private var showingAIDrawer = false
-    @State private var aiDrawerOffset: CGFloat = 300
+    // 新增：左侧抽屉式搜索引擎列表状态
+    @State private var showingSearchEngineDrawer = false
+    @State private var searchEngineDrawerOffset: CGFloat = -300
     
     // 新增功能状态
     @State private var showingExpandedInput = false
@@ -418,6 +124,10 @@ struct BrowserView: View {
     @State private var showingToast = false
     @State private var toastMessage = ""
     @State private var toastType: ToastType = .success
+    
+    // 新增：工具栏按钮放大和文字提示状态
+    @State private var showingToolbarButtonHints = true // 是否显示工具栏按钮提示
+    @State private var pressedButtonId: String? = nil // 当前按下的按钮ID
 
     // 边缘滑动返回手势状态
     @State private var edgeSwipeOffset: CGFloat = 0
@@ -425,9 +135,6 @@ struct BrowserView: View {
 
     // 全局Prompt状态管理
     @StateObject private var promptManager = GlobalPromptManager.shared
-
-    // AI对话管理器
-    @StateObject private var aiChatManager = AIChatManager.shared
 
     // 新增：Toast类型枚举
     enum ToastType {
@@ -466,62 +173,38 @@ struct BrowserView: View {
         BrowserSearchEngine(id: "nano", name: "纳米搜索", url: "https://bot.n.cn/", icon: "atom", color: .green)
     ]
     
-    // AI对话服务列表
-    private let aiServices = [
-        AIService(id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", icon: "brain.head.profile", color: .purple, category: "AI对话"),
-        AIService(id: "kimi", name: "Kimi", url: "https://kimi.moonshot.cn/", icon: "moon.stars", color: .orange, category: "AI对话"),
-        AIService(id: "doubao", name: "豆包", url: "https://www.doubao.com/chat/", icon: "bubble.left.and.bubble.right", color: .blue, category: "AI对话"),
-        AIService(id: "wenxin", name: "文心一言", url: "https://yiyan.baidu.com/", icon: "doc.text", color: .red, category: "AI对话"),
-        AIService(id: "yuanbao", name: "元宝", url: "https://yuanbao.tencent.com/", icon: "diamond", color: .pink, category: "AI对话"),
-        AIService(id: "chatglm", name: "智谱清言", url: "https://chatglm.cn/main/gdetail", icon: "lightbulb.fill", color: .yellow, category: "AI对话"),
-        AIService(id: "tongyi", name: "通义千问", url: "https://tongyi.aliyun.com/qianwen/", icon: "cloud.fill", color: .cyan, category: "AI对话"),
-        AIService(id: "claude", name: "Claude", url: "https://claude.ai/chats", icon: "sparkles", color: .indigo, category: "AI对话"),
-        AIService(id: "chatgpt", name: "ChatGPT", url: "https://chat.openai.com/", icon: "bubble.left.and.bubble.right.fill", color: .green, category: "AI对话"),
-        AIService(id: "metaso", name: "秘塔", url: "https://metaso.cn/", icon: "lock.shield", color: .gray, category: "AI搜索"),
-        AIService(id: "nano", name: "纳米搜索", url: "https://bot.n.cn/", icon: "atom", color: .mint, category: "AI搜索")
-    ]
-    
     var body: some View {
         NavigationView {
-            GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    // 固定顶部工具栏
-                    if viewModel.isUIVisible {
-                        VStack(spacing: 8) {
-                            // 工具栏按钮
-                            HStack(spacing: 12) {
-                                Spacer()
-                                
-                                // AI对话按钮 - 触发右侧抽屉
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        showingAIDrawer = true
-                                        aiDrawerOffset = 0
-                                    }
-                                }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "brain.head.profile")
-                                            .foregroundColor(.purple)
-                                            .font(.system(size: 16, weight: .medium))
-                                            .frame(width: 20, height: 20)
-                                            .clipped()
-
-                                        Image(systemName: "chevron.left")
-                                            .foregroundColor(.gray)
-                                            .font(.system(size: 10, weight: .medium))
-                                            .frame(width: 12, height: 12)
-                                    }
-                                    .frame(width: 44, height: 44)
-                                    .padding(.horizontal, 8)
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(10)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 8)
-
-                            // URL输入栏
+            VStack(spacing: 0) {
+                // 固定顶部工具栏
+                if viewModel.isUIVisible {
+                    VStack(spacing: 8) {
+                        // URL输入栏
                         HStack(spacing: 8) {
+                            // 搜索引擎选择按钮 - 改为触发左侧抽屉
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    showingSearchEngineDrawer = true
+                                    searchEngineDrawerOffset = 0
+                                }
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: searchEngines[selectedSearchEngine].icon)
+                                        .foregroundColor(searchEngines[selectedSearchEngine].color)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 20, height: 20)
+                                        .clipped()
+
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.gray)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .frame(width: 12, height: 12)
+                                }
+                                .frame(width: 44, height: 44)
+                                .padding(.horizontal, 8)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(10)
+                            }
 
                             HStack(spacing: 12) {
                                 // 搜索输入框
@@ -584,75 +267,161 @@ struct BrowserView: View {
                         
                         // 导航按钮
                         HStack(spacing: 20) {
-                            Button(action: {
-                                viewModel.goBack()
-                            }) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(viewModel.canGoBack ? .green : .gray)
-                            }
-                            .disabled(!viewModel.canGoBack)
+                            // 后退按钮
+                            EnhancedToolbarButton(
+                                id: "back",
+                                icon: "chevron.left",
+                                title: "后退",
+                                isEnabled: viewModel.canGoBack,
+                                isPressed: pressedButtonId == "back",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "back"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    viewModel.goBack()
+                                }
+                            )
                             
-                            Button(action: {
-                                viewModel.goForward()
-                            }) {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(viewModel.canGoForward ? .green : .gray)
-                            }
-                            .disabled(!viewModel.canGoForward)
+                            // 前进按钮
+                            EnhancedToolbarButton(
+                                id: "forward",
+                                icon: "chevron.right",
+                                title: "前进",
+                                isEnabled: viewModel.canGoForward,
+                                isPressed: pressedButtonId == "forward",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "forward"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    viewModel.goForward()
+                                }
+                            )
                             
-                            Button(action: {
-                                viewModel.webView.reload()
-                            }) {
-                                Image(systemName: viewModel.isLoading ? "stop.fill" : "arrow.clockwise")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.green)
-                            }
+                            // 刷新按钮
+                            EnhancedToolbarButton(
+                                id: "refresh",
+                                icon: viewModel.isLoading ? "stop.fill" : "arrow.clockwise",
+                                title: viewModel.isLoading ? "停止" : "刷新",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "refresh",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "refresh"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    viewModel.webView.reload()
+                                }
+                            )
 
-                            Button(action: {
-                                goToHomePage()
-                            }) {
-                                Image(systemName: "house.fill")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.green)
-                            }
+                            // 主页按钮
+                            EnhancedToolbarButton(
+                                id: "home",
+                                icon: "house.fill",
+                                title: "主页",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "home",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "home"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    goToHomePage()
+                                }
+                            )
 
                             Spacer()
                             
                             // AI对话按钮
-                            Button(action: {
-                                showAIChat()
-                            }) {
-                                Image(systemName: "brain.head.profile")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.green)
-                            }
+                            EnhancedToolbarButton(
+                                id: "ai_chat",
+                                icon: "brain.head.profile",
+                                title: "AI对话",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "ai_chat",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "ai_chat"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    showAIChat()
+                                }
+                            )
                             
-                            Button(action: {
-                                toggleFavorite()
-                            }) {
-                                let isBookmarked = viewModel.urlString != nil && favoritePages.contains(viewModel.urlString!)
-                                Image(systemName: isBookmarked ? "star.fill" : "star")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(isBookmarked ? .yellow : .green)
-                            }
+                            // 收藏按钮
+                            EnhancedToolbarButton(
+                                id: "favorite",
+                                icon: (viewModel.urlString != nil && favoritePages.contains(viewModel.urlString!)) ? "star.fill" : "star",
+                                title: "收藏",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "favorite",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "favorite"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    toggleFavorite()
+                                }
+                            )
                             
-                            Button(action: {
-                                showingBookmarks.toggle()
-                            }) {
-                                Image(systemName: "book.fill")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.green)
-                            }
+                            // 书签按钮
+                            EnhancedToolbarButton(
+                                id: "bookmarks",
+                                icon: "book.fill",
+                                title: "书签",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "bookmarks",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "bookmarks"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    showingBookmarks.toggle()
+                                }
+                            )
                             
-                            Button(action: {
-                                shareCurrentURL()
-                            }) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.green)
-                            }
+                            // 分享按钮
+                            EnhancedToolbarButton(
+                                id: "share",
+                                icon: "square.and.arrow.up",
+                                title: "分享",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "share",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "share"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    shareCurrentURL()
+                                }
+                            )
+                            
+                            // 设置按钮（控制提示开关）
+                            EnhancedToolbarButton(
+                                id: "settings",
+                                icon: "gearshape.fill",
+                                title: "设置",
+                                isEnabled: true,
+                                isPressed: pressedButtonId == "settings",
+                                showingHints: showingToolbarButtonHints,
+                                onPress: {
+                                    pressedButtonId = "settings"
+                                },
+                                onRelease: {
+                                    pressedButtonId = nil
+                                    showingToolbarButtonHints.toggle()
+                                    showToast(showingToolbarButtonHints ? "已开启按钮提示" : "已关闭按钮提示", type: .info)
+                                }
+                            )
                         }
                         .padding(.horizontal, 16)
                         .padding(.bottom, 8)
@@ -667,19 +436,21 @@ struct BrowserView: View {
                 
                 // 内容区域（可滚动）
                 if showingCustomHomePage {
-                    ScrollableCustomHomePage(
-                        searchQuery: $searchQuery,
-                        onSearch: { query in
-                            urlText = query
-                            showingCustomHomePage = false
-                            loadURL()
-                        },
-                        onPromptSelected: { prompt in
-                            searchQuery = prompt
-                        },
-                        promptManager: promptManager,
-                        availableHeight: geometry.size.height - (viewModel.isUIVisible ? 140 : 0)
-                    )
+                    GeometryReader { geometry in
+                        ScrollableCustomHomePage(
+                            searchQuery: $searchQuery,
+                            onSearch: { query in
+                                urlText = query
+                                showingCustomHomePage = false
+                                loadURL()
+                            },
+                            onPromptSelected: { prompt in
+                                searchQuery = prompt
+                            },
+                            promptManager: promptManager,
+                            availableHeight: geometry.size.height - (viewModel.isUIVisible ? 140 : 0)
+                        )
+                    }
                 } else {
                     WebView(viewModel: viewModel)
                         .clipped()
@@ -825,46 +596,48 @@ struct BrowserView: View {
         .sheet(isPresented: $showingPromptManager) {
             PromptManagerView(promptManager: promptManager)
         }
-        .sheet(isPresented: $aiChatManager.isChatActive) {
-            AIChatView()
-        }
         .toast(isPresented: $showingToast) {
             ToastView(message: toastMessage, type: toastType)
         }
-
-        // 右侧抽屉式AI对话列表
+        // 新增：左侧抽屉式搜索引擎列表
         .overlay(
             ZStack {
                 // 背景遮罩
-                if showingAIDrawer {
+                if showingSearchEngineDrawer {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
                         .onTapGesture {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                showingAIDrawer = false
-                                aiDrawerOffset = 300
+                                showingSearchEngineDrawer = false
+                                searchEngineDrawerOffset = -300
                             }
                         }
                 }
                 
-                // 右侧抽屉
+                // 左侧抽屉
                 HStack {
-                    Spacer()
-                    
-                    AIDrawerView(
-                        aiServices: aiServices,
-                        isPresented: $showingAIDrawer,
-                        onAISelected: { service in
+                    SearchEngineDrawerView(
+                        searchEngines: searchEngines,
+                        selectedSearchEngine: $selectedSearchEngine,
+                        isPresented: $showingSearchEngineDrawer,
+                        onEngineSelected: { index in
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                showingAIDrawer = false
-                                aiDrawerOffset = 300
+                                selectedSearchEngine = index
+                                showingSearchEngineDrawer = false
+                                searchEngineDrawerOffset = -300
                                 
-                                // 激活真正的AI对话
-                                aiChatManager.startNewChat(with: service)
+                                // 如果是AI搜索引擎，直接加载对话页面
+                                let engine = searchEngines[index]
+                                if ["deepseek", "kimi", "doubao", "wenxin", "yuanbao", "chatglm", "tongyi", "claude", "chatgpt", "metaso", "nano"].contains(engine.id) {
+                                    urlText = engine.url
+                                    loadURL()
+                                }
                             }
                         }
                     )
-                    .offset(x: showingAIDrawer ? 0 : 300)
+                    .offset(x: showingSearchEngineDrawer ? 0 : -300)
+                    
+                    Spacer()
                 }
             }
         )
@@ -1088,8 +861,7 @@ struct BrowserView: View {
         
         // 2. 特殊粘贴：粘贴智能提示中用户已经勾选的prompt选项
         if let currentPrompt = promptManager.currentPrompt {
-            let truncatedPrompt = String(currentPrompt.content.prefix(30)) + (currentPrompt.content.count > 30 ? "..." : "")
-            alertController.addAction(UIAlertAction(title: "特殊粘贴: \(truncatedPrompt)", style: .default) { _ in
+            alertController.addAction(UIAlertAction(title: "特殊粘贴: \(currentPrompt.name)", style: .default) { _ in
                 self.urlText = currentPrompt.content
             })
         }
@@ -1138,19 +910,21 @@ struct BrowserView: View {
     private func getPromptOptions() -> [String] {
         var options: [String] = []
         
-        // 添加当前选中的智能提示
+        // 从全局Prompt管理器获取已选择的提示
         if let currentPrompt = promptManager.currentPrompt {
             options.append(currentPrompt.content)
         }
         
-        // 添加最近使用的智能提示（最多3个）
-        let recentPrompts = promptManager.savedPrompts.prefix(3)
-        for prompt in recentPrompts {
-            if prompt.id != promptManager.currentPrompt?.id {
-                options.append(prompt.content)
-            }
-        }
+        // 添加一些常用的智能提示
+        let commonPrompts = [
+            "帮我搜索一下",
+            "这是什么意思？",
+            "如何解决这个问题？",
+            "请详细解释一下",
+            "有什么建议吗？"
+        ]
         
+        options.append(contentsOf: commonPrompts)
         return options
     }
 
@@ -2360,13 +2134,13 @@ struct BrowserAIChatView: View {
                 isLoading = false
                 switch result {
                 case .success(let response):
-            let aiMessage = BrowserChatMessage(
-                id: UUID().uuidString,
+                    let aiMessage = BrowserChatMessage(
+                        id: UUID().uuidString,
                         content: response,
-                isUser: false,
-                timestamp: Date()
-            )
-            messages.append(aiMessage)
+                        isUser: false,
+                        timestamp: Date()
+                    )
+                    messages.append(aiMessage)
                 case .failure(let error):
                     showToast("API调用失败: \(error.localizedDescription)")
                 }
@@ -2702,17 +2476,23 @@ struct BrowserAPIConfigView: View {
     }
 }
 
-// MARK: - 右侧抽屉式AI对话列表视图
-struct AIDrawerView: View {
-    let aiServices: [AIService]
+// MARK: - 左侧抽屉式搜索引擎列表视图
+struct SearchEngineDrawerView: View {
+    let searchEngines: [BrowserSearchEngine]
+    @Binding var selectedSearchEngine: Int
     @Binding var isPresented: Bool
-    let onAISelected: (AIService) -> Void
-    @ObservedObject private var aiChatManager = AIChatManager.shared
+    let onEngineSelected: (Int) -> Void
     
     var body: some View {
         VStack(spacing: 0) {
             // 标题栏
             HStack {
+                Text("搜索引擎")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         isPresented = false
@@ -2722,12 +2502,6 @@ struct AIDrawerView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.gray)
                 }
-                
-                Spacer()
-                
-                Text("AI对话")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -2735,20 +2509,15 @@ struct AIDrawerView: View {
             
             Divider()
             
-            // AI服务列表
+            // 搜索引擎列表
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(aiServices, id: \.id) { service in
-                        AIDrawerItem(
-                            service: service,
-                            sessionCount: aiChatManager.getSessionCount(for: service.id),
-                            recentSessions: aiChatManager.getRecentSessions(for: service.id, limit: 3),
+                    ForEach(Array(searchEngines.enumerated()), id: \.offset) { index, engine in
+                        SearchEngineDrawerItem(
+                            engine: engine,
+                            isSelected: selectedSearchEngine == index,
                             onTap: {
-                                onAISelected(service)
-                            },
-                            onSessionTap: { session in
-                                aiChatManager.continueChat(session: session)
-                                isPresented = false
+                                onEngineSelected(index)
                             }
                         )
                     }
@@ -2758,117 +2527,112 @@ struct AIDrawerView: View {
         }
         .frame(width: 280)
         .background(Color(.systemBackground))
-        .shadow(color: .black.opacity(0.2), radius: 10, x: -5, y: 0)
+        .shadow(color: .black.opacity(0.2), radius: 10, x: 5, y: 0)
     }
 }
 
-// MARK: - 抽屉式AI服务项目
-struct AIDrawerItem: View {
-    let service: AIService
-    let sessionCount: Int
-    let recentSessions: [AIChatSession]
+// MARK: - 抽屉式搜索引擎项目
+struct SearchEngineDrawerItem: View {
+    let engine: BrowserSearchEngine
+    let isSelected: Bool
     let onTap: () -> Void
-    let onSessionTap: (AIChatSession) -> Void
-    @State private var showingSessions = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // 主服务按钮
-            Button(action: onTap) {
-                HStack(spacing: 12) {
-                    Image(systemName: service.icon)
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(service.color)
-                        .frame(width: 24, height: 24)
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: engine.icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(isSelected ? .white : engine.color)
+                    .frame(width: 24, height: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(engine.name)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(isSelected ? .white : .primary)
                     
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(service.name)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.primary)
-                        
-                        Text(service.category)
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 2) {
-                        if sessionCount > 0 {
-                            Text("\(sessionCount)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                    }
+                    Text(getEngineCategory(engine.id))
+                        .font(.system(size: 12))
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(Color(.systemBackground))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            // 历史对话（如果有的话）
-            if !recentSessions.isEmpty {
-                VStack(spacing: 0) {
-                    Divider()
-                        .padding(.horizontal, 20)
-                    
-                    ForEach(recentSessions) { session in
-                        Button(action: {
-                            onSessionTap(session)
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 20, height: 20)
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(session.title)
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.primary)
-                                    
-                                    if let lastMessage = session.messages.last {
-                                        Text(lastMessage.content)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                Text(formatDate(session.lastUpdated))
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(Color(.systemGray6))
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        if session.id != recentSessions.last?.id {
-                            Divider()
-                                .padding(.horizontal, 40)
-                        }
-                    }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? engine.color : Color.clear)
+            )
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PlainButtonStyle())
     }
     
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
+    private func getEngineCategory(_ engineId: String) -> String {
+        switch engineId {
+        case "baidu", "bing":
+            return "搜索"
+        case "deepseek", "kimi", "doubao", "wenxin", "yuanbao", "chatglm", "tongyi", "claude", "chatgpt":
+            return "AI对话"
+        case "metaso", "nano":
+            return "AI搜索"
+        default:
+            return "其他"
+        }
     }
 }
 
-
+// MARK: - 增强工具栏按钮组件
+struct EnhancedToolbarButton: View {
+    let id: String
+    let icon: String
+    let title: String
+    let isEnabled: Bool
+    let isPressed: Bool
+    let showingHints: Bool
+    let onPress: () -> Void
+    let onRelease: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 2) {
+            // 按钮图标
+            Image(systemName: icon)
+                .font(.system(size: isPressed ? 22 : 18, weight: .medium))
+                .foregroundColor(isEnabled ? (isPressed ? .white : .green) : .gray)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(isPressed ? Color.green : Color.clear)
+                        .scaleEffect(isPressed ? 1.2 : 1.0)
+                )
+                .animation(.easeInOut(duration: 0.1), value: isPressed)
+            
+            // 文字提示（仅在开启时显示）
+            if showingHints {
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(isEnabled ? .primary : .secondary)
+                    .opacity(isPressed ? 1.0 : 0.8)
+                    .animation(.easeInOut(duration: 0.1), value: isPressed)
+            }
+        }
+        .scaleEffect(isPressed ? 1.1 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: 50) {
+            // 长按手势，立即触发
+        } onPressingChanged: { pressing in
+            if pressing {
+                onPress()
+            } else {
+                onRelease()
+            }
+        }
+        .disabled(!isEnabled)
+    }
+}

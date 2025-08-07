@@ -8,14 +8,6 @@ import SwiftUI
 
 struct SearchView: View {
     @State private var searchText = ""
-    @State private var selectedEngine = "baidu"
-    
-    let engines = [
-        ("baidu", "百度", "magnifyingglass.circle.fill", Color.blue),
-        ("google", "谷歌", "globe", Color.green),
-        ("bing", "必应", "b.circle.fill", Color.blue),
-        ("duckduckgo", "DuckDuckGo", "shield.fill", Color.orange)
-    ]
     
     var body: some View {
         VStack(spacing: 0) {
@@ -44,33 +36,23 @@ struct SearchView: View {
             .padding()
             .background(Color(.systemGray6))
             
-            // 搜索引擎选择
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(engines, id: \.0) { engine in
-                        Button(action: {
-                            selectedEngine = engine.0
-                        }) {
-                            VStack(spacing: 4) {
-                                Image(systemName: engine.2)
-                                    .font(.title2)
-                                    .foregroundColor(selectedEngine == engine.0 ? engine.3 : .gray)
-                                
-                                Text(engine.1)
-                                    .font(.caption)
-                                    .foregroundColor(selectedEngine == engine.0 ? .primary : .gray)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(selectedEngine == engine.0 ? engine.3.opacity(0.1) : Color.clear)
-                            )
-                        }
-                    }
-                }
-                .padding()
+            // 提示信息
+            VStack(spacing: 16) {
+                Image(systemName: "magnifyingglass.circle")
+                    .font(.system(size: 48))
+                    .foregroundColor(.gray)
+                
+                Text("请输入搜索关键词")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+                
+                Text("搜索功能已简化，请使用浏览 tab 进行详细搜索")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
             }
+            .padding(.top, 60)
             
             Spacer()
         }
@@ -79,20 +61,8 @@ struct SearchView: View {
     private func performSearch() {
         guard !searchText.isEmpty else { return }
         
-        // 构建搜索URL
-        var urlString = ""
-        switch selectedEngine {
-        case "baidu":
-            urlString = "https://www.baidu.com/s?wd=\(searchText)"
-        case "google":
-            urlString = "https://www.google.com/search?q=\(searchText)"
-        case "bing":
-            urlString = "https://www.bing.com/search?q=\(searchText)"
-        case "duckduckgo":
-            urlString = "https://duckduckgo.com/?q=\(searchText)"
-        default:
-            urlString = "https://www.baidu.com/s?wd=\(searchText)"
-        }
+        // 使用默认搜索引擎（百度）
+        let urlString = "https://www.baidu.com/s?wd=\(searchText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? searchText)"
         
         // 发送通知切换到浏览器标签页并执行搜索
         NotificationCenter.default.post(name: .performSearch, object: urlString)
