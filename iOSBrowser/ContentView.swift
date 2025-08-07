@@ -2575,22 +2575,22 @@ struct ContentView: View {
 
             // 主内容区域 - 微信风格的简洁滑动
             GeometryReader { geometry in
-                HStack(spacing: 0) {
-                    SearchView()
-                        .frame(width: geometry.size.width)
-
-                    BrowserView(viewModel: webViewModel)
-                        .frame(width: geometry.size.width)
-
-                    SimpleAIChatView()
-                        .frame(width: geometry.size.width)
-
-                    WidgetConfigView()
-                        .frame(width: geometry.size.width)
+                Group {
+                    switch selectedTab {
+                    case 0:
+                        SearchView()
+                    case 1:
+                        BrowserView(viewModel: webViewModel)
+                    case 2:
+                        SimpleAIChatView()
+                    case 3:
+                        WidgetConfigView()
+                    default:
+                        SearchView()
+                    }
                 }
-                .offset(x: -CGFloat(selectedTab) * geometry.size.width)
+                .frame(width: geometry.size.width)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0), value: selectedTab)
-                .clipped()
             }
 
             // 微信风格的底部Tab栏

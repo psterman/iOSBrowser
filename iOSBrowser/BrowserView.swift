@@ -399,6 +399,10 @@ struct BrowserView: View {
     @State private var showingFloatingPrompt = false
     @State private var showingPromptManager = false
     
+    // 搜索引擎抽屉状态
+    @State private var showingSearchEngineDrawer = false
+    @State private var searchEngineDrawerOffset: CGFloat = -300
+    
 
     
     // 右侧抽屉式AI对话列表状态
@@ -453,17 +457,24 @@ struct BrowserView: View {
     private let searchEngines = [
         BrowserSearchEngine(id: "baidu", name: "百度", url: "https://www.baidu.com/s?wd=", icon: "magnifyingglass", color: .green),
         BrowserSearchEngine(id: "bing", name: "必应", url: "https://www.bing.com/search?q=", icon: "magnifyingglass.circle", color: .green),
-        BrowserSearchEngine(id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", icon: "brain.head.profile", color: .green),
-        BrowserSearchEngine(id: "kimi", name: "Kimi", url: "https://kimi.moonshot.cn/", icon: "moon.stars", color: .green),
-        BrowserSearchEngine(id: "doubao", name: "豆包", url: "https://www.doubao.com/chat/", icon: "bubble.left.and.bubble.right", color: .green),
         BrowserSearchEngine(id: "wenxin", name: "文心一言", url: "https://yiyan.baidu.com/", icon: "doc.text", color: .green),
+        BrowserSearchEngine(id: "doubao", name: "豆包", url: "https://www.doubao.com/chat/", icon: "bubble.left.and.bubble.right", color: .green),
         BrowserSearchEngine(id: "yuanbao", name: "元宝", url: "https://yuanbao.tencent.com/", icon: "diamond", color: .green),
-        BrowserSearchEngine(id: "chatglm", name: "智谱清言", url: "https://chatglm.cn/main/gdetail", icon: "lightbulb.fill", color: .green),
+        BrowserSearchEngine(id: "kimi", name: "Kimi", url: "https://kimi.moonshot.cn/", icon: "moon.stars", color: .green),
+        BrowserSearchEngine(id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", icon: "brain.head.profile", color: .green),
         BrowserSearchEngine(id: "tongyi", name: "通义千问", url: "https://tongyi.aliyun.com/qianwen/", icon: "cloud.fill", color: .green),
-        BrowserSearchEngine(id: "claude", name: "Claude", url: "https://claude.ai/chats", icon: "sparkles", color: .green),
-        BrowserSearchEngine(id: "chatgpt", name: "ChatGPT", url: "https://chat.openai.com/", icon: "bubble.left.and.bubble.right.fill", color: .green),
+        BrowserSearchEngine(id: "xunfei", name: "星火", url: "https://xinghuo.xfyun.cn/", icon: "sparkles", color: .green),
         BrowserSearchEngine(id: "metaso", name: "秘塔", url: "https://metaso.cn/", icon: "lock.shield", color: .green),
-        BrowserSearchEngine(id: "nano", name: "纳米搜索", url: "https://bot.n.cn/", icon: "atom", color: .green)
+        BrowserSearchEngine(id: "gemini", name: "Gemini", url: "https://gemini.google.com/", icon: "brain.head.profile", color: .green),
+        BrowserSearchEngine(id: "chatgpt", name: "ChatGPT", url: "https://chat.openai.com/", icon: "bubble.left.and.bubble.right.fill", color: .green),
+        BrowserSearchEngine(id: "ima", name: "IMA", url: "https://ima.im/", icon: "person.circle", color: .green),
+        BrowserSearchEngine(id: "perplexity", name: "Perplexity", url: "https://www.perplexity.ai/", icon: "questionmark.circle", color: .green),
+        BrowserSearchEngine(id: "chatglm", name: "智谱清言", url: "https://chatglm.cn/main/gdetail", icon: "lightbulb.fill", color: .green),
+        BrowserSearchEngine(id: "tiangong", name: "天工", url: "https://tiangong.kunlun.com/", icon: "hammer", color: .green),
+        BrowserSearchEngine(id: "you", name: "You", url: "https://you.com/", icon: "person.2", color: .green),
+        BrowserSearchEngine(id: "nano", name: "纳米AI搜索", url: "https://bot.n.cn/", icon: "atom", color: .green),
+        BrowserSearchEngine(id: "copilot", name: "Copilot", url: "https://copilot.microsoft.com/", icon: "airplane", color: .green),
+        BrowserSearchEngine(id: "keling", name: "可灵", url: "https://keling.ai/", icon: "bolt", color: .green)
     ]
     
     // AI对话服务列表
@@ -490,6 +501,34 @@ struct BrowserView: View {
                         VStack(spacing: 8) {
                             // 工具栏按钮
                             HStack(spacing: 12) {
+                                // 搜索引擎按钮 - 触发左侧抽屉
+                                Button(action: {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        showingSearchEngineDrawer = true
+                                        searchEngineDrawerOffset = 0
+                                        // 关闭AI抽屉
+                                        showingAIDrawer = false
+                                        aiDrawerOffset = 300
+                                    }
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "magnifyingglass")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .frame(width: 20, height: 20)
+                                            .clipped()
+
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.gray)
+                                            .font(.system(size: 10, weight: .medium))
+                                            .frame(width: 12, height: 12)
+                                    }
+                                    .frame(width: 44, height: 44)
+                                    .padding(.horizontal, 8)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(10)
+                                }
+                                
                                 Spacer()
                                 
                                 // AI对话按钮 - 触发右侧抽屉
@@ -497,6 +536,9 @@ struct BrowserView: View {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                         showingAIDrawer = true
                                         aiDrawerOffset = 0
+                                        // 关闭搜索引擎抽屉
+                                        showingSearchEngineDrawer = false
+                                        searchEngineDrawerOffset = -300
                                     }
                                 }) {
                                     HStack(spacing: 6) {
@@ -831,6 +873,47 @@ struct BrowserView: View {
         .toast(isPresented: $showingToast) {
             ToastView(message: toastMessage, type: toastType)
         }
+
+        // 左侧抽屉式搜索引擎列表
+        .overlay(
+            ZStack {
+                // 背景遮罩
+                if showingSearchEngineDrawer {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                showingSearchEngineDrawer = false
+                                searchEngineDrawerOffset = -300
+                            }
+                        }
+                }
+                
+                // 左侧抽屉
+                HStack {
+                    SearchEngineDrawerView(
+                        searchEngines: searchEngines,
+                        selectedSearchEngine: $selectedSearchEngine,
+                        isPresented: $showingSearchEngineDrawer,
+                        onEngineSelected: { index in
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedSearchEngine = index
+                                showingSearchEngineDrawer = false
+                                searchEngineDrawerOffset = -300
+                                
+                                // 直接加载搜索引擎网址
+                                let engine = searchEngines[index]
+                                urlText = engine.url
+                                loadURL()
+                            }
+                        }
+                    )
+                    .offset(x: showingSearchEngineDrawer ? 0 : -300)
+                    
+                    Spacer()
+                }
+            }
+        )
 
         // 右侧抽屉式AI对话列表
         .overlay(
@@ -2868,6 +2951,116 @@ struct AIDrawerItem: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - 左侧抽屉式搜索引擎列表视图
+struct SearchEngineDrawerView: View {
+    let searchEngines: [BrowserSearchEngine]
+    @Binding var selectedSearchEngine: Int
+    @Binding var isPresented: Bool
+    let onEngineSelected: (Int) -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("搜索引擎")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isPresented = false
+                    }
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color(.systemBackground))
+            
+            Divider()
+            
+            // 搜索引擎列表
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(searchEngines.enumerated()), id: \.offset) { index, engine in
+                        SearchEngineDrawerItem(
+                            engine: engine,
+                            isSelected: selectedSearchEngine == index,
+                            onTap: {
+                                onEngineSelected(index)
+                            }
+                        )
+                    }
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+        }
+        .frame(width: 280)
+        .background(Color(.systemBackground))
+        .shadow(color: .black.opacity(0.2), radius: 10, x: 5, y: 0)
+    }
+}
+
+// MARK: - 抽屉式搜索引擎项目
+struct SearchEngineDrawerItem: View {
+    let engine: BrowserSearchEngine
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: engine.icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(isSelected ? .white : engine.color)
+                    .frame(width: 24, height: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(engine.name)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(isSelected ? .white : .primary)
+                    
+                    Text(getEngineCategory(engine.id))
+                        .font(.system(size: 12))
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? engine.color : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func getEngineCategory(_ engineId: String) -> String {
+        switch engineId {
+        case "baidu", "bing":
+            return "搜索"
+        case "wenxin", "doubao", "yuanbao", "kimi", "deepseek", "tongyi", "xunfei", "metaso", "gemini", "chatgpt", "ima", "perplexity", "chatglm", "tiangong", "you", "nano", "copilot", "keling":
+            return "AI对话"
+        default:
+            return "其他"
+        }
     }
 }
 
