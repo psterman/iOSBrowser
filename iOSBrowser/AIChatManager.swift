@@ -137,43 +137,26 @@ class AIChatManager: ObservableObject {
         }
     }
     
-    // MARK: - AI响应生成（模拟）
+    // MARK: - AI响应生成
     
     private func generateAIResponse(for message: String, aiService: String) -> String {
         // 这里应该调用真实的AI API
-        // 目前使用模拟响应
-        let responses = [
-            "我理解您的问题。让我为您提供详细的解答...",
-            "这是一个很好的问题。根据我的分析...",
-            "我可以帮您解决这个问题。建议您...",
-            "基于您提供的信息，我认为...",
-            "让我为您分析一下这个情况..."
-        ]
-        
-        let randomResponse = responses.randomElement() ?? "我收到了您的消息，正在处理中..."
-        
-        // 根据AI服务添加特定前缀
-        switch aiService {
-        case "deepseek":
-            return "🤖 DeepSeek: \(randomResponse)"
-        case "kimi":
-            return "🌙 Kimi: \(randomResponse)"
-        case "doubao":
-            return "💬 豆包: \(randomResponse)"
-        case "wenxin":
-            return "📄 文心一言: \(randomResponse)"
-        case "yuanbao":
-            return "💎 元宝: \(randomResponse)"
-        case "chatglm":
-            return "💡 智谱清言: \(randomResponse)"
-        case "tongyi":
-            return "☁️ 通义千问: \(randomResponse)"
-        case "claude":
-            return "✨ Claude: \(randomResponse)"
-        case "chatgpt":
-            return "🧠 ChatGPT: \(randomResponse)"
-        default:
-            return "🤖 AI助手: \(randomResponse)"
+        // 返回占位符，等待真实API集成
+        return "正在连接\(getAIServiceName(aiService))，请稍候..."
+    }
+    
+    private func getAIServiceName(_ serviceId: String) -> String {
+        switch serviceId {
+        case "deepseek": return "DeepSeek"
+        case "kimi": return "Kimi"
+        case "doubao": return "豆包"
+        case "wenxin": return "文心一言"
+        case "yuanbao": return "元宝"
+        case "chatglm": return "智谱清言"
+        case "tongyi": return "通义千问"
+        case "claude": return "Claude"
+        case "chatgpt": return "ChatGPT"
+        default: return "AI助手"
         }
     }
     

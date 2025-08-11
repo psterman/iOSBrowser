@@ -277,11 +277,8 @@ class ContactsManager: ObservableObject {
            let contacts = try? JSONDecoder().decode(Set<String>.self, from: data) {
             enabledContacts = contacts
         } else {
-            // 默认启用所有平台联系人和一些主要的AI助手
+            // 默认启用主要的AI助手
             let defaultEnabled = Set([
-                // 平台联系人（默认全部启用）
-                "douyin", "xiaohongshu", "wechat_mp", "weixin_channels", "toutiao",
-                "bilibili", "youtube", "jike", "baijiahao", "xigua", "ximalaya",
                 // 主要AI助手（用户可以选择启用）
                 "deepseek", "qwen", "chatglm", "moonshot", "openai", "claude", "gemini"
             ])
@@ -311,8 +308,8 @@ class ContactsManager: ObservableObject {
     
     func resetAllSettings() {
         enabledContacts.removeAll()
-        // 重新启用所有平台联系人
-        enabledContacts = Set(getAllContacts().filter { $0.isPlatform }.map { $0.id })
+        // 重新启用所有AI助手联系人
+        enabledContacts = Set(getAllContacts().filter { !$0.isPlatform }.map { $0.id })
         saveContactSettings()
     }
     
@@ -330,23 +327,7 @@ class ContactsManager: ObservableObject {
             UnifiedContact(id: "gemini", name: "Gemini", description: "Google AI助手", avatar: "diamond.fill", color: .blue, isPlatform: false, requiresApiKey: true),
         ]
         
-        // 添加平台联系人
-        let platformContacts = [
-            UnifiedContact(id: "douyin", name: "抖音", description: "短视频热门内容推送", avatar: "music.note", color: .black, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "xiaohongshu", name: "小红书", description: "生活方式热门分享", avatar: "heart.fill", color: .red, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "wechat_mp", name: "公众号", description: "微信公众号热文推送", avatar: "bubble.left.and.bubble.right.fill", color: .green, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "weixin_channels", name: "视频号", description: "微信视频号热门内容", avatar: "video.fill", color: .green, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "toutiao", name: "今日头条", description: "新闻资讯热点推送", avatar: "newspaper.fill", color: .red, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "bilibili", name: "B站", description: "哔哩哔哩热门视频", avatar: "tv.fill", color: .pink, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "youtube", name: "油管", description: "YouTube热门视频", avatar: "play.rectangle.fill", color: .red, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "jike", name: "即刻", description: "即刻热门动态", avatar: "bolt.fill", color: .yellow, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "baijiahao", name: "百家号", description: "百度百家号热文", avatar: "doc.text.fill", color: .blue, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "xigua", name: "西瓜", description: "西瓜视频热门内容", avatar: "play.circle.fill", color: .green, isPlatform: true, requiresApiKey: false),
-            UnifiedContact(id: "ximalaya", name: "喜马拉雅", description: "音频内容热门推荐", avatar: "waveform", color: .orange, isPlatform: true, requiresApiKey: false),
-        ]
-        
         contacts.append(contentsOf: aiAssistants)
-        contacts.append(contentsOf: platformContacts)
         
         return contacts
     }

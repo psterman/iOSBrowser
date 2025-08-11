@@ -14,82 +14,11 @@ struct EnhancedAIChatView: View {
     @State private var showingChat = false
     @State private var currentChatPlatform: PlatformContact?
     
-    // 平台对话人配置
-    private let platformContacts: [PlatformContact] = [
-        PlatformContact(
-            id: "bilibili",
-            name: "B站助手",
-            icon: "tv.fill",
-            color: Color(red: 0.2, green: 0.7, blue: 0.3),
-            description: "B站视频搜索和推荐助手",
-            searchPrompt: "请帮我搜索B站上关于{query}的视频内容，并提供相关推荐"
-        ),
-        PlatformContact(
-            id: "toutiao",
-            name: "头条助手",
-            icon: "newspaper.fill",
-            color: Color(red: 1.0, green: 0.2, blue: 0.2),
-            description: "今日头条资讯搜索助手",
-            searchPrompt: "请帮我搜索今日头条上关于{query}的新闻资讯"
-        ),
-        PlatformContact(
-            id: "wechat_mp",
-            name: "公众号助手",
-            icon: "message.circle.fill",
-            color: Color(red: 0.0, green: 0.8, blue: 0.2),
-            description: "微信公众号文章搜索助手",
-            searchPrompt: "请帮我搜索微信公众号中关于{query}的文章内容"
-        ),
-        PlatformContact(
-            id: "ximalaya",
-            name: "喜马拉雅助手",
-            icon: "headphones",
-            color: Color(red: 1.0, green: 0.4, blue: 0.0),
-            description: "喜马拉雅音频搜索助手",
-            searchPrompt: "请帮我搜索喜马拉雅上关于{query}的音频内容"
-        ),
-        PlatformContact(
-            id: "xiaohongshu",
-            name: "小红书助手",
-            icon: "heart.fill",
-            color: Color(red: 1.0, green: 0.2, blue: 0.4),
-            description: "小红书内容搜索助手",
-            searchPrompt: "请帮我搜索小红书上关于{query}的笔记和推荐"
-        ),
-        PlatformContact(
-            id: "zhihu",
-            name: "知乎助手",
-            icon: "bubble.left.and.bubble.right.fill",
-            color: Color(red: 0.0, green: 0.5, blue: 1.0),
-            description: "知乎问答搜索助手",
-            searchPrompt: "请帮我搜索知乎上关于{query}的问题和回答"
-        ),
-        PlatformContact(
-            id: "douyin",
-            name: "抖音助手",
-            icon: "music.note",
-            color: Color(red: 0.0, green: 0.0, blue: 0.0),
-            description: "抖音视频搜索助手",
-            searchPrompt: "请帮我搜索抖音上关于{query}的视频内容"
-        ),
-        PlatformContact(
-            id: "weibo",
-            name: "微博助手",
-            icon: "at",
-            color: Color(red: 1.0, green: 0.3, blue: 0.3),
-            description: "微博话题搜索助手",
-            searchPrompt: "请帮我搜索微博上关于{query}的话题和讨论"
-        )
-    ]
-    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // 搜索输入区域
                 searchInputSection
-                
-                // 平台对话人选择区域
-                platformContactsSection
                 
                 // 聚合搜索按钮
                 aggregatedSearchSection
@@ -98,11 +27,6 @@ struct EnhancedAIChatView: View {
             }
             .navigationTitle("AI对话助手")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingChat) {
-                if let platform = currentChatPlatform {
-                    PlatformChatView(platform: platform, initialQuery: searchQuery)
-                }
-            }
         }
     }
     
@@ -167,28 +91,6 @@ struct EnhancedAIChatView: View {
             }
             .padding(.horizontal, 16)
         }
-    }
-    
-    // MARK: - 平台对话人选择区域
-    private var platformContactsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("选择对话平台")
-                .font(.headline)
-                .padding(.horizontal, 16)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
-                ForEach(platformContacts) { contact in
-                    PlatformContactCard(
-                        contact: contact,
-                        isSelected: selectedPlatform == contact.id
-                    ) {
-                        selectedPlatform = contact.id
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-        .padding(.vertical, 8)
     }
     
     // MARK: - 聚合搜索区域
@@ -376,8 +278,9 @@ struct PlatformChatView: View {
         inputText = ""
         isLoading = true
         
-        // 模拟AI回复
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        // TODO: 这里应该调用真实的平台API
+        // 目前显示占位符消息
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             let response = generatePlatformResponse(query: query)
             let aiMessage = ChatMessage(
                 id: UUID(),
@@ -393,27 +296,9 @@ struct PlatformChatView: View {
     private func generatePlatformResponse(query: String) -> String {
         let prompt = platform.searchPrompt.replacingOccurrences(of: "{query}", with: query)
         
-        // 模拟不同平台的回复风格
-        switch platform.id {
-        case "bilibili":
-            return "🎬 在B站上搜索"\(query)"，我找到了以下相关内容：\n\n• 热门视频推荐\n• 相关UP主推荐\n• 播放量较高的内容\n\n建议你可以直接打开B站应用查看详细内容！"
-        case "toutiao":
-            return "📰 在今日头条上搜索"\(query)"，我发现了这些新闻资讯：\n\n• 最新相关新闻\n• 热门话题讨论\n• 专家观点分析\n\n建议你打开今日头条应用获取最新资讯！"
-        case "wechat_mp":
-            return "📱 在微信公众号中搜索"\(query)"，我找到了这些文章：\n\n• 深度分析文章\n• 行业专家观点\n• 实用指南内容\n\n建议你通过微信搜索功能查看详细内容！"
-        case "ximalaya":
-            return "🎧 在喜马拉雅上搜索"\(query)"，我发现了这些音频内容：\n\n• 相关播客节目\n• 有声书推荐\n• 音频课程\n\n建议你打开喜马拉雅应用收听相关内容！"
-        case "xiaohongshu":
-            return "💄 在小红书上搜索"\(query)"，我找到了这些笔记：\n\n• 用户分享经验\n• 产品推荐\n• 生活技巧\n\n建议你打开小红书应用查看更多内容！"
-        case "zhihu":
-            return "🤔 在知乎上搜索"\(query)"，我发现了这些问答：\n\n• 相关问题讨论\n• 专业回答\n• 用户经验分享\n\n建议你打开知乎应用查看详细讨论！"
-        case "douyin":
-            return "🎵 在抖音上搜索"\(query)"，我找到了这些视频：\n\n• 热门短视频\n• 相关话题挑战\n• 用户创作内容\n\n建议你打开抖音应用观看精彩视频！"
-        case "weibo":
-            return "📢 在微博上搜索"\(query)"，我发现了这些话题：\n\n• 热门话题讨论\n• 用户观点分享\n• 实时动态更新\n\n建议你打开微博应用参与讨论！"
-        default:
-            return "🔍 我正在搜索"\(query)"的相关内容，请稍等..."
-        }
+        // TODO: 这里应该调用真实的平台API
+        // 目前显示占位符消息
+        return "🔍 正在搜索"\(query)"的相关内容，请稍等..."
     }
 }
 
@@ -470,6 +355,26 @@ struct PlatformContact: Identifiable {
     let color: Color
     let description: String
     let searchPrompt: String
+    
+    // 静态平台列表 - 仅保留AI对话相关平台
+    static let allPlatforms: [PlatformContact] = [
+        PlatformContact(
+            id: "ai_chat",
+            name: "AI对话",
+            icon: "brain.head.profile",
+            color: .blue,
+            description: "智能AI助手对话",
+            searchPrompt: "请帮我回答关于{query}的问题"
+        ),
+        PlatformContact(
+            id: "ai_assistant",
+            name: "AI助手",
+            icon: "person.badge.plus",
+            color: .green,
+            description: "专业AI助手服务",
+            searchPrompt: "我需要{query}方面的帮助"
+        )
+    ]
 }
 
 struct ChatMessage: Identifiable {

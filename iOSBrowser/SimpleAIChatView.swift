@@ -71,10 +71,13 @@ struct SimpleAIChatView: View {
         // 清空输入框
         messageText = ""
         
-        // 模拟AI回复
+        // 显示AI正在处理状态
         isLoading = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            let aiMessage = Message(content: "这是AI的回复：\n\n\(trimmedMessage)", isUser: false)
+        
+        // TODO: 这里应该调用真实的AI API
+        // 目前显示占位符消息
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let aiMessage = Message(content: "正在处理您的请求，请稍候...", isUser: false)
             messages.append(aiMessage)
             isLoading = false
         }

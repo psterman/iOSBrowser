@@ -167,7 +167,7 @@ class DataSyncCenter: ObservableObject {
             return saved
         }
         print("🔥🔥🔥 @Published初始化: 使用默认应用")
-        let defaultApps = ["taobao", "zhihu", "douyin"]
+        let defaultApps = ["taobao", "zhihu"]
 
         // 🔥🔥🔥 关键修复：立即保存默认值到UserDefaults
         defaults.set(defaultApps, forKey: "iosbrowser_apps")
@@ -305,14 +305,10 @@ class DataSyncCenter: ObservableObject {
             // 社交媒体 - 统一绿色系
             UnifiedAppData(id: "zhihu", name: "知乎", icon: "bubble.left.and.bubble.right.fill", color: .themeGreen, category: "社交"),
             UnifiedAppData(id: "weibo", name: "微博", icon: "at", color: .themeLightGreen, category: "社交"),
-            UnifiedAppData(id: "xiaohongshu", name: "小红书", icon: "heart.fill", color: .themeDarkGreen, category: "社交"),
             UnifiedAppData(id: "wechat", name: "微信", icon: "message.circle.fill", color: .themeSuccessGreen, category: "社交"),
 
             // 视频娱乐 - 统一绿色系
-            UnifiedAppData(id: "douyin", name: "抖音", icon: "music.note", color: .themeDarkGreen, category: "视频"),
             UnifiedAppData(id: "kuaishou", name: "快手", icon: "video.circle.fill", color: .themeGreen, category: "视频"),
-            UnifiedAppData(id: "bilibili", name: "bilibili", icon: "tv.fill", color: .themeLightGreen, category: "视频"),
-            UnifiedAppData(id: "youtube", name: "YouTube", icon: "play.rectangle.fill", color: .themeDarkGreen, category: "视频"),
             UnifiedAppData(id: "youku", name: "优酷", icon: "play.rectangle.fill", color: .themeGreen, category: "视频"),
             UnifiedAppData(id: "iqiyi", name: "爱奇艺", icon: "tv.fill", color: .themeSuccessGreen, category: "视频"),
 
@@ -1203,7 +1199,7 @@ struct WidgetConfigView: View {
         // 重置到默认值
         dataSyncCenter.selectedSearchEngines = ["baidu", "google"]
         dataSyncCenter.selectedAIAssistants = ["deepseek", "qwen"]
-        dataSyncCenter.selectedApps = ["taobao", "zhihu", "douyin"]
+        dataSyncCenter.selectedApps = ["taobao", "zhihu"]
         dataSyncCenter.selectedQuickActions = ["search", "bookmark"]
 
         print("📱 已重置到默认值:")
@@ -1264,7 +1260,7 @@ struct WidgetConfigView: View {
 
         // 检查并初始化应用数据
         if defaults.stringArray(forKey: "iosbrowser_apps")?.isEmpty != false {
-            let defaultApps = ["taobao", "zhihu", "douyin"]
+            let defaultApps = ["taobao", "zhihu"]
             defaults.set(defaultApps, forKey: "iosbrowser_apps")
             print("🔥🔥🔥 强制初始化: 保存默认应用 \(defaultApps)")
         }
@@ -2635,7 +2631,7 @@ struct ContentView: View {
 
         // 检查并初始化应用数据
         if defaults.stringArray(forKey: "iosbrowser_apps")?.isEmpty != false {
-            let defaultApps = ["taobao", "zhihu", "douyin"]
+            let defaultApps = ["taobao", "zhihu"]
             defaults.set(defaultApps, forKey: "iosbrowser_apps")
             print("🚀 应用启动初始化: 保存默认应用 \(defaultApps)")
             needsSync = true
@@ -2918,8 +2914,6 @@ struct ContentView: View {
                 appURL = "openapp.jdmobile://virtual?params={\"category\":\"jump\",\"des\":\"search\",\"keyWord\":\"\(encodedQuery)\"}"
             case "meituan":
                 appURL = "imeituan://www.meituan.com/search?q=\(encodedQuery)"
-            case "douyin":
-                appURL = "snssdk1128://search?keyword=\(encodedQuery)"
             case "alipay":
                 appURL = "alipay://platformapi/startapp?appId=20000067&query=\(encodedQuery)"
             case "wechat":
@@ -3189,15 +3183,9 @@ struct SearchView: View {
         // 社交媒体
         AppInfo(name: "知乎", icon: "知", systemIcon: "bubble.left.circle.fill", color: Color(red: 0.0, green: 0.5, blue: 1.0), urlScheme: "zhihu://search?q=", bundleId: "com.zhihu.ios", category: "社交", appStoreId: "432274380"),
         AppInfo(name: "微博", icon: "微", systemIcon: "at.circle.fill", color: Color(red: 1.0, green: 0.3, blue: 0.3), urlScheme: "sinaweibo://search?q=", bundleId: "com.sina.weibo", category: "社交", appStoreId: "350962117"),
-        AppInfo(name: "小红书", icon: "小", systemIcon: "heart.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.4), urlScheme: "xhsdiscover://search?keyword=", bundleId: "com.xingin.xhs", category: "社交", appStoreId: "741292507"),
 
         // 视频娱乐
-        AppInfo(name: "抖音", icon: "抖", systemIcon: "music.note.tv.fill", color: Color(red: 0.0, green: 0.0, blue: 0.0), urlScheme: "snssdk1128://search?keyword=", bundleId: "com.ss.iphone.ugc.Aweme", category: "视频", appStoreId: "1142110895"),
-        AppInfo(name: "快手", icon: "快", systemIcon: "video.circle.fill", color: Color(red: 1.0, green: 0.4, blue: 0.0), urlScheme: "kwai://search?keyword=", bundleId: "com.kuaishou.gif", category: "视频", appStoreId: "440948110"),
-        AppInfo(name: "bilibili", icon: "B", systemIcon: "tv.circle.fill", color: Color(red: 0.2, green: 0.7, blue: 0.3), urlScheme: "bilibili://search?keyword=", bundleId: "tv.danmaku.bili", category: "视频", appStoreId: "736536022"),
-        AppInfo(name: "YouTube", icon: "Y", systemIcon: "play.tv.fill", color: Color(red: 1.0, green: 0.0, blue: 0.0), urlScheme: "youtube://results?search_query=", bundleId: "com.google.ios.youtube", category: "视频", appStoreId: "544007664"),
-        AppInfo(name: "优酷", icon: "优", systemIcon: "play.rectangle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "youku://search?keyword=", bundleId: "com.youku.YouKu", category: "视频", appStoreId: "336141475"),
-        AppInfo(name: "爱奇艺", icon: "爱", systemIcon: "tv.fill", color: Color(red: 0.0, green: 0.8, blue: 0.4), urlScheme: "qiyi-iphone://search?key=", bundleId: "com.qiyi.iphone", category: "视频", appStoreId: "393765873"),
+
 
         // 音乐
         AppInfo(name: "QQ音乐", icon: "Q", systemIcon: "music.note.circle.fill", color: Color(red: 0.0, green: 0.8, blue: 0.2), urlScheme: "qqmusic://search?key=", bundleId: "com.tencent.QQMusic", category: "音乐", appStoreId: "414603431"),
@@ -3243,8 +3231,6 @@ struct SearchView: View {
         AppInfo(name: "小猿搜题", icon: "猿", systemIcon: "questionmark.circle.fill", color: Color(red: 1.0, green: 0.6, blue: 0.0), urlScheme: "xiaoyuan://search?keyword=", bundleId: "com.fenbi.iphone.ape", category: "教育", appStoreId: "1034006541"),
 
         // 新闻资讯
-        AppInfo(name: "今日头条", icon: "今", systemIcon: "newspaper.circle.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "snssdk32://search?keyword=", bundleId: "com.ss.iphone.article.News", category: "新闻", appStoreId: "529092160"),
-        AppInfo(name: "腾讯新闻", icon: "腾", systemIcon: "doc.text.circle.fill", color: Color(red: 0.0, green: 0.6, blue: 1.0), urlScheme: "qqnews://search?keyword=", bundleId: "com.tencent.news", category: "新闻", appStoreId: "399363894"),
         AppInfo(name: "网易新闻", icon: "网", systemIcon: "globe.asia.australia.fill", color: Color(red: 1.0, green: 0.2, blue: 0.2), urlScheme: "newsapp://search?keyword=", bundleId: "com.netease.news", category: "新闻", appStoreId: "425349261")
     ]
 
@@ -4668,33 +4654,14 @@ struct SimpleAIChatView: View {
         // 🎨 专业工具
         AIContact(id: "dalle", name: "DALL-E", description: "OpenAI图像生成模型", model: "dall-e-3", avatar: "photo.circle.fill", isOnline: true, apiEndpoint: "https://api.openai.com/v1", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .pink),
         AIContact(id: "midjourney", name: "Midjourney", description: "专业AI绘画工具", model: "midjourney-v6", avatar: "paintbrush.fill", isOnline: true, apiEndpoint: "https://api.midjourney.com", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .purple),
-        AIContact(id: "stablediffusion", name: "Stable Diffusion", description: "开源AI图像生成", model: "stable-diffusion-xl", avatar: "camera.macro.circle.fill", isOnline: true, apiEndpoint: "https://api.stability.ai", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .orange),
-
-        // 📱 平台热榜联系人
-        AIContact(id: "douyin", name: "抖音", description: "短视频热门内容推送", model: "platform-douyin", avatar: "music.note", isOnline: true, apiEndpoint: "https://www.douyin.com/hot", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .black),
-        AIContact(id: "xiaohongshu", name: "小红书", description: "生活方式热门分享", model: "platform-xiaohongshu", avatar: "heart.fill", isOnline: true, apiEndpoint: "https://www.xiaohongshu.com/explore", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
-        AIContact(id: "wechat_mp", name: "公众号", description: "微信公众号热文推送", model: "platform-wechat", avatar: "bubble.left.and.bubble.right.fill", isOnline: true, apiEndpoint: nil, requiresApiKey: false, supportedFeatures: [.hotTrends], color: .green),
-        AIContact(id: "weixin_channels", name: "视频号", description: "微信视频号热门内容", model: "platform-channels", avatar: "video.fill", isOnline: true, apiEndpoint: nil, requiresApiKey: false, supportedFeatures: [.hotTrends], color: .green),
-        AIContact(id: "toutiao", name: "今日头条", description: "新闻资讯热点推送", model: "platform-toutiao", avatar: "newspaper.fill", isOnline: true, apiEndpoint: "https://www.toutiao.com/hot-event/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
-        AIContact(id: "bilibili", name: "B站", description: "哔哩哔哩热门视频", model: "platform-bilibili", avatar: "tv.fill", isOnline: true, apiEndpoint: "https://www.bilibili.com/ranking", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .pink),
-        AIContact(id: "youtube", name: "油管", description: "YouTube热门视频", model: "platform-youtube", avatar: "play.rectangle.fill", isOnline: true, apiEndpoint: "https://www.youtube.com/feed/trending", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
-        AIContact(id: "jike", name: "即刻", description: "即刻热门动态", model: "platform-jike", avatar: "bolt.fill", isOnline: true, apiEndpoint: "https://web.okjike.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .yellow),
-        AIContact(id: "baijiahao", name: "百家号", description: "百度百家号热文", model: "platform-baijiahao", avatar: "doc.text.fill", isOnline: true, apiEndpoint: "https://baijiahao.baidu.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .blue),
-        AIContact(id: "xigua", name: "西瓜", description: "西瓜视频热门内容", model: "platform-xigua", avatar: "play.circle.fill", isOnline: true, apiEndpoint: "https://www.ixigua.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .green),
-        AIContact(id: "ximalaya", name: "喜马拉雅", description: "音频内容热门推荐", model: "platform-ximalaya", avatar: "waveform", isOnline: true, apiEndpoint: "https://www.ximalaya.com/", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .orange)
+        AIContact(id: "stablediffusion", name: "Stable Diffusion", description: "开源AI图像生成", model: "stable-diffusion-xl", avatar: "camera.macro.circle.fill", isOnline: true, apiEndpoint: "https://api.stability.ai", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .orange)
     ]
 
     // 已启用的联系人列表
     var enabledContacts: [AIContact] {
         return contacts.filter { contact in
-            // 平台联系人：检查是否在联系人管理器中启用
-            if contact.supportedFeatures.contains(.hotTrends) {
-                return contactsManager.isContactEnabled(contact.id)
-            }
             // AI助手：需要有API配置且在联系人管理器中启用
-            else {
-                return apiManager.hasAPIKey(for: contact.id) && contactsManager.isContactEnabled(contact.id)
-            }
+            return apiManager.hasAPIKey(for: contact.id) && contactsManager.isContactEnabled(contact.id)
         }
     }
 
@@ -6660,11 +6627,12 @@ class MockHotTrendsManager: ObservableObject, HotTrendsManagerProtocol {
     }
 
     private func initializeWithSampleData() {
-        // 初始化前几个平台的示例数据
-        let platformIds = ["douyin", "xiaohongshu", "bilibili"]
-        for platformId in platformIds {
-            hotTrends[platformId] = generateMockData(for: platformId)
-            lastUpdateTime[platformId] = Date()
+        // 初始化时生成一些示例数据
+        let samplePlatforms = ["weibo", "zhihu", "douyin"]
+        
+        for platform in samplePlatforms {
+            hotTrends[platform] = generateMockData(for: platform)
+            lastUpdateTime[platform] = Date()
         }
     }
 
@@ -6685,9 +6653,10 @@ class MockHotTrendsManager: ObservableObject, HotTrendsManagerProtocol {
 
     func refreshAllHotTrends() {
         // 所有平台ID列表
-        let platformIds = ["douyin", "xiaohongshu", "wechat_mp", "weixin_channels", "toutiao", "bilibili", "youtube", "jike", "baijiahao", "xigua", "ximalaya"]
-        for platformId in platformIds {
-            refreshHotTrends(for: platformId)
+        let platforms = ["weibo", "zhihu", "douyin", "bilibili", "xiaohongshu"]
+        
+        for platform in platforms {
+            refreshHotTrends(for: platform)
         }
     }
 
@@ -6712,18 +6681,12 @@ class MockHotTrendsManager: ObservableObject, HotTrendsManagerProtocol {
 
     private func generateMockData(for platform: String) -> HotTrendsList {
         // 平台ID到名称的映射
-        let platformNames: [String: String] = [
+        let platformNames = [
+            "weibo": "微博",
+            "zhihu": "知乎",
             "douyin": "抖音",
-            "xiaohongshu": "小红书",
-            "wechat_mp": "公众号",
-            "weixin_channels": "视频号",
-            "toutiao": "今日头条",
             "bilibili": "B站",
-            "youtube": "油管",
-            "jike": "即刻",
-            "baijiahao": "百家号",
-            "xigua": "西瓜",
-            "ximalaya": "喜马拉雅"
+            "xiaohongshu": "小红书"
         ]
         let platformName = platformNames[platform] ?? platform
 
@@ -6766,11 +6729,8 @@ class SimpleContactsManager: ObservableObject {
            let contacts = try? JSONDecoder().decode(Set<String>.self, from: data) {
             enabledContacts = contacts
         } else {
-            // 默认启用所有平台联系人和主要AI助手
+            // 默认启用主要AI助手
             let defaultEnabled = Set([
-                // 平台联系人（默认全部启用）
-                "douyin", "xiaohongshu", "wechat_mp", "weixin_channels", "toutiao",
-                "bilibili", "youtube", "jike", "baijiahao", "xigua", "ximalaya",
                 // 主要AI助手（用户可以选择启用）
                 "deepseek", "qwen", "chatglm", "moonshot", "openai", "claude", "gemini"
             ])
@@ -6816,10 +6776,7 @@ struct SimpleContactsManagementView: View {
         AIContact(id: "claude", name: "Claude", description: "Anthropic智能助手", model: "claude-3", avatar: "sparkles", isOnline: true, apiEndpoint: "https://api.anthropic.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
         AIContact(id: "gemini", name: "Gemini", description: "Google AI助手", model: "gemini-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://api.google.com", requiresApiKey: true, supportedFeatures: [.textGeneration], color: .blue),
 
-        // 平台联系人
-        AIContact(id: "douyin", name: "抖音", description: "短视频热门内容推送", model: "platform-douyin", avatar: "music.note", isOnline: true, apiEndpoint: "https://www.douyin.com/hot", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .black),
-        AIContact(id: "xiaohongshu", name: "小红书", description: "生活方式热门分享", model: "platform-xiaohongshu", avatar: "heart.fill", isOnline: true, apiEndpoint: "https://www.xiaohongshu.com/explore", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .red),
-        AIContact(id: "bilibili", name: "B站", description: "哔哩哔哩热门视频", model: "platform-bilibili", avatar: "tv.fill", isOnline: true, apiEndpoint: "https://www.bilibili.com/ranking", requiresApiKey: false, supportedFeatures: [.hotTrends], color: .pink),
+
     ]
 
     var body: some View {

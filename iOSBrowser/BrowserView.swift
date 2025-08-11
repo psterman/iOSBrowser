@@ -157,16 +157,9 @@ class AIChatManager: ObservableObject {
     // MARK: - 辅助方法
     
     private func generateAIResponse(for content: String, aiService: String) -> String {
-        // 模拟AI回复
-        let responses = [
-            "我理解您的问题，让我为您详细解答...",
-            "这是一个很有趣的问题，我的看法是...",
-            "根据我的分析，建议您...",
-            "我可以帮您解决这个问题，具体方法是...",
-            "您提到的这个观点很有见地，我想补充一下..."
-        ]
-        
-        return responses.randomElement() ?? "我明白了，请继续。"
+        // TODO: 这里应该调用真实的AI API
+        // 目前显示占位符消息
+        return "正在处理您的请求，请稍候..."
     }
 }
 

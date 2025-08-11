@@ -1047,23 +1047,7 @@ struct ChatMessageRow: View {
 
     private func getPlatformId(from aiSource: String?) -> String {
         guard let source = aiSource else { return "" }
-
-        // 将AI来源名称映射到平台ID
-        let platformMapping: [String: String] = [
-            "抖音": "douyin",
-            "小红书": "xiaohongshu",
-            "公众号": "wechat_mp",
-            "视频号": "weixin_channels",
-            "今日头条": "toutiao",
-            "B站": "bilibili",
-            "油管": "youtube",
-            "即刻": "jike",
-            "百家号": "baijiahao",
-            "西瓜": "xigua",
-            "喜马拉雅": "ximalaya"
-        ]
-
-        return platformMapping[source] ?? source
+        return source
     }
     
     private func formatTime(_ date: Date) -> String {
@@ -1077,13 +1061,13 @@ struct ChatView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             ChatView(contact: AIContact(
-                id: "test",
-                name: "测试AI",
-                description: "测试用AI助手",
-                model: "test-model",
+                id: "deepseek",
+                name: "DeepSeek",
+                description: "DeepSeek AI助手",
+                model: "deepseek-chat",
                 avatar: "brain.head.profile",
                 isOnline: true,
-                apiEndpoint: "https://api.test.com",
+                apiEndpoint: "https://api.deepseek.com",
                 requiresApiKey: true,
                 supportedFeatures: [.textGeneration]
             ))
