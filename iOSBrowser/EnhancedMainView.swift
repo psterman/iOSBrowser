@@ -10,20 +10,20 @@ import SwiftUI
 struct EnhancedMainView: View {
     @StateObject private var webViewModel = WebViewModel()
     @EnvironmentObject var deepLinkHandler: DeepLinkHandler
-    @State private var selectedTab = 0
+    @State private var selectedTab = 0  // 默认选中AI tab
     
     var body: some View {
         VStack(spacing: 0) {
             // 主内容区域 - 微信风格的简洁滑动
             GeometryReader { geometry in
                 HStack(spacing: 0) {
-                    SearchView()
+                    SimpleAIChatView()
                         .frame(width: geometry.size.width)
                     
                     BrowserView(viewModel: webViewModel)
                         .frame(width: geometry.size.width)
                     
-                    SimpleAIChatView()
+                    SearchView()
                         .frame(width: geometry.size.width)
                     
                     WidgetConfigView()
@@ -126,10 +126,10 @@ struct WeChatTabBar: View {
     @Binding var selectedTab: Int
     
     private let tabs = [
-        ("magnifyingglass", "搜索"),
+        ("message", "AI"),
         ("safari", "浏览"),
-        ("message", "AI聊天"),
-        ("gearshape", "设置")
+        ("magnifyingglass", "搜索"),
+        ("gearshape", "小组件")
     ]
     
     var body: some View {

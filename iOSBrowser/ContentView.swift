@@ -2574,15 +2574,15 @@ struct ContentView: View {
                 Group {
                     switch selectedTab {
                     case 0:
-                        SearchView()
+                        SimpleAIChatView()
                     case 1:
                         BrowserView(viewModel: webViewModel)
                     case 2:
-                        SimpleAIChatView()
+                        SearchView()
                     case 3:
                         WidgetConfigView()
                     default:
-                        SearchView()
+                        SimpleAIChatView()
                     }
                 }
                 .frame(width: geometry.size.width)
@@ -2693,8 +2693,8 @@ struct ContentView: View {
             selectedTab = 2 // 搜索tab
             handleSearchDeepLink(queryItems: queryItems)
         case "ai":
-            print("🔗 跳转到AI联系人tab")
-            selectedTab = 1 // AI联系人tab
+            print("🔗 跳转到AI聊天tab")
+            selectedTab = 0 // AI聊天tab
             handleAIDeepLink(queryItems: queryItems)
         case "apps":
             print("🔗 跳转到应用搜索tab")
@@ -2801,7 +2801,7 @@ struct ContentView: View {
     private func handleClipboardSearch(queryItems: [URLQueryItem]?) {
         print("📋 处理剪贴板搜索: \(queryItems?.description ?? "无参数")")
 
-        selectedTab = 0 // 浏览器tab
+        selectedTab = 1 // 浏览器tab
         let pasteboard = UIPasteboard.general.string ?? ""
         let engine = queryItems?.first(where: { $0.name == "engine" })?.value ?? "google"
 
@@ -2953,7 +2953,7 @@ struct ContentView: View {
 
         // 切换到AI tab
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            selectedTab = 2 // AI tab
+            selectedTab = 0 // AI tab
 
             // 发送通知显示AI助手信息
             NotificationCenter.default.post(name: .showAIAssistant, object: assistantId)
@@ -2994,7 +2994,7 @@ struct ContentView: View {
 
         // 切换到搜索tab
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            selectedTab = 0 // 搜索tab
+            selectedTab = 2 // 搜索tab
 
             if !appId.isEmpty {
                 let clipboardContent = UIPasteboard.general.string ?? ""
@@ -3052,10 +3052,10 @@ struct WeChatTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // 搜索
+            // AI
             WeChatTabItem(
-                icon: "magnifyingglass",
-                title: "搜索",
+                icon: "message",
+                title: "AI",
                 isSelected: selectedTab == 0
             ) {
                 selectedTab = 0
@@ -3063,17 +3063,17 @@ struct WeChatTabBar: View {
 
             // 浏览
             WeChatTabItem(
-                icon: "globe",
+                icon: "safari",
                 title: "浏览",
                 isSelected: selectedTab == 1
             ) {
                 selectedTab = 1
             }
 
-            // AI
+            // 搜索
             WeChatTabItem(
-                icon: "brain.head.profile",
-                title: "AI",
+                icon: "magnifyingglass",
+                title: "搜索",
                 isSelected: selectedTab == 2
             ) {
                 selectedTab = 2
@@ -3081,7 +3081,7 @@ struct WeChatTabBar: View {
 
             // 小组件
             WeChatTabItem(
-                icon: "widget.small",
+                icon: "gearshape",
                 title: "小组件",
                 isSelected: selectedTab == 3
             ) {
@@ -6268,8 +6268,6 @@ struct CategoryEditorView: View {
             categories[index] = updatedCategory
         }
     }
-
-
 
     private func saveCategoryConfigs() {
         if let data = try? JSONEncoder().encode(categories) {
