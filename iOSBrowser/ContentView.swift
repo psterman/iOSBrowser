@@ -6772,9 +6772,7 @@ struct SimpleContactsManagementView: View {
         AIContact(id: "qwen", name: "通义千问", description: "阿里云大语言模型", model: "qwen-max", avatar: "cloud.fill", isOnline: true, apiEndpoint: "https://dashscope.aliyuncs.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .translation, .summarization], color: .cyan),
         AIContact(id: "openai", name: "ChatGPT", description: "OpenAI对话AI", model: "gpt-4", avatar: "bubble.left.and.bubble.right.fill", isOnline: true, apiEndpoint: "https://api.openai.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .green),
         AIContact(id: "claude", name: "Claude", description: "Anthropic智能助手", model: "claude-3", avatar: "sparkles", isOnline: true, apiEndpoint: "https://api.anthropic.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
-        AIContact(id: "gemini", name: "Gemini", description: "Google AI助手", model: "gemini-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://api.google.com", requiresApiKey: true, supportedFeatures: [.textGeneration], color: .blue),
-
-
+        AIContact(id: "gemini", name: "Gemini", description: "Google AI助手", model: "gemini-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://api.google.com", requiresApiKey: true, supportedFeatures: [.textGeneration], color: .blue)
     ]
 
     var body: some View {
