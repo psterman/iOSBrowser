@@ -128,9 +128,6 @@ class AIChatManager: ObservableObject {
     // MARK: - AI API调用
     
     private func callAIAPI(message: String, aiService: String) {
-        print("🔧 调用AI API - 服务: \(aiService), 消息: \(message)")
-        print("🔧 AI服务ID检查: \(aiService)")
-        print("🔧 是否匹配deepseek: \(aiService == "deepseek")")
         DispatchQueue.main.async {
             self.isLoading = true
         }

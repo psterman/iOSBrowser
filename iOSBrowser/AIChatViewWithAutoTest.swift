@@ -1,13 +1,13 @@
 //
-//  AIChatView.swift
+//  AIChatViewWithAutoTest.swift
 //  iOSBrowser
 //
-//  AI对话界面 - 显示和管理AI对话
+//  带有自动测试功能的AI对话视图
 //
 
 import SwiftUI
 
-struct AIChatView: View {
+struct AIChatViewWithAutoTest: View {
     @ObservedObject var chatManager = AIChatManager.shared
     @State private var messageText = ""
     @State private var showingSessionList = false
@@ -18,11 +18,22 @@ struct AIChatView: View {
     @State private var testResults: [String] = []
     @State private var currentTestStep = 0
     @State private var showingTestPanel = false
-    @State private var autoTestOnAppear = false
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                // 自动测试面板（可折叠）
+                if showingTestPanel {
+                    AutoTestPanel(
+                        isTesting: $isAutoTesting,
+                        currentStep: $currentTestStep,
+                        testResults: $testResults,
+                        onStartTest: startAutoTest,
+                        onResetTest: resetAutoTest
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                
                 if let session = chatManager.currentSession {
                     // 对话界面
                     VStack(spacing: 0) {
@@ -131,92 +142,10 @@ struct AIChatView: View {
                                     .background(Color.blue.opacity(0.1))
                                     .cornerRadius(8)
                             }
-                            
-                            // 测试按钮
-                            Button(action: {
-                                startAutoTest()
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "wrench.and.screwdriver")
-                                    Text("开始测试")
-                                }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 12)
-                                .background(Color.orange)
-                                .cornerRadius(8)
-                            }
-                            .disabled(isAutoTesting)
                         }
                     }
                     .padding()
                 }
-            }
-            
-            // 测试面板（可折叠）- 移到导航栏下方
-            if showingTestPanel {
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("🔧 AI对话初始化测试")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Button("关闭") {
-                            showingTestPanel = false
-                        }
-                        .foregroundColor(.gray)
-                    }
-                    
-                    HStack(spacing: 12) {
-                        Button(isAutoTesting ? "测试中..." : "开始测试") {
-                            startAutoTest()
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(isAutoTesting ? Color.gray : Color.blue)
-                        .cornerRadius(8)
-                        .disabled(isAutoTesting)
-                        
-                        Button("重置") {
-                            resetAutoTest()
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.orange)
-                        .cornerRadius(8)
-                        .disabled(isAutoTesting)
-                    }
-                    
-                    if !testResults.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("测试结果:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    ForEach(testResults.suffix(5), id: \.self) { result in
-                                        Text(result)
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                            }
-                            .frame(maxHeight: 100)
-                        }
-                        .padding(.top, 8)
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .padding(.horizontal)
-                .transition(.move(edge: .top).combined(with: .opacity))
             }
             .navigationTitle(chatManager.currentSession?.title ?? "AI对话")
             .navigationBarTitleDisplayMode(.inline)
@@ -251,21 +180,13 @@ struct AIChatView: View {
             }
             .onAppear {
                 // 自动开始测试（可选）
-                if UserDefaults.standard.bool(forKey: "AIChat_AutoTestOnAppear") {
+                if UserDefaults.standard.bool(forKey: "AutoTestOnAppear") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         startAutoTest()
                     }
                 }
             }
         }
-    }
-    
-    private func sendMessage() {
-        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedText.isEmpty else { return }
-        
-        chatManager.sendMessage(trimmedText)
-        messageText = ""
     }
     
     // MARK: - 自动测试方法
@@ -417,7 +338,7 @@ struct AIChatView: View {
         if failCount > 0 {
             addTestResult("⚠️ 发现问题！请检查失败的步骤")
         } else {
-            addTestResult("✅ 所有测试通过，AI对话初始化正常")
+            addTestResult("✅ 所有测试通过，初始化正常")
         }
     }
     
@@ -431,326 +352,13 @@ struct AIChatView: View {
         let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         testResults.append("[\(timestamp)] \(result)")
     }
-}
-
-// MARK: - API配置视图
-struct APIConfigView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @State private var deepseekAPIKey = ""
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
     
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("DeepSeek API配置")) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("API密钥")
-                            .font(.headline)
-                        
-                        SecureField("输入DeepSeek API密钥", text: $deepseekAPIKey)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                        
-                        Text("获取API密钥：")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Link("https://platform.deepseek.com", destination: URL(string: "https://platform.deepseek.com")!)
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
-                    .padding(.vertical, 8)
-                }
-                
-                Section(header: Text("其他AI服务")) {
-                    Text("其他AI服务的API配置将在后续版本中添加")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Section {
-                    Button("保存配置") {
-                        saveAPIConfig()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(8)
-                }
-            }
-            .navigationTitle("API配置")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button("取消") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-            .onAppear {
-                loadAPIConfig()
-            }
-            .alert("配置结果", isPresented: $showingAlert) {
-                Button("确定") { }
-            } message: {
-                Text(alertMessage)
-            }
-        }
-    }
-    
-    private func loadAPIConfig() {
-        deepseekAPIKey = UserDefaults.standard.string(forKey: "deepseek_API_KEY") ?? ""
-    }
-    
-    private func saveAPIConfig() {
-        UserDefaults.standard.set(deepseekAPIKey, forKey: "deepseek_API_KEY")
-        UserDefaults.standard.synchronize()
+    private func sendMessage() {
+        let trimmedText = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
         
-        alertMessage = "API配置已保存！"
-        showingAlert = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-}
-
-// MARK: - 消息气泡
-struct MessageBubble: View {
-    let message: AIChatMessage
-    
-    var body: some View {
-        HStack {
-            if message.isUser {
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(message.content)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(18)
-                    
-                    Text(formatTime(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .top, spacing: 8) {
-                        // AI头像
-                        Image(systemName: getAIServiceIcon(message.aiService))
-                            .font(.system(size: 16))
-                            .foregroundColor(getAIServiceColor(message.aiService))
-                            .frame(width: 24, height: 24)
-                            .background(
-                                Circle()
-                                    .fill(getAIServiceColor(message.aiService).opacity(0.1))
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(message.content.isEmpty ? "正在输入..." : message.content)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(Color(.systemGray5))
-                                .foregroundColor(.primary)
-                                .cornerRadius(18)
-                            
-                            // 流式状态指示器
-                            if message.isStreaming {
-                                HStack(spacing: 4) {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                    Text("AI正在回复...")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            
-                            Text(formatTime(message.timestamp))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                Spacer()
-            }
-        }
-    }
-    
-    private func getAIServiceIcon(_ serviceId: String) -> String {
-        switch serviceId {
-        case "deepseek": return "brain.head.profile"
-        case "kimi": return "moon.stars"
-        case "doubao": return "bubble.left.and.bubble.right"
-        case "wenxin": return "doc.text"
-        case "yuanbao": return "diamond"
-        case "chatglm": return "lightbulb.fill"
-        case "tongyi": return "cloud.fill"
-        case "claude": return "sparkles"
-        case "chatgpt": return "bubble.left.and.bubble.right.fill"
-        default: return "brain.head.profile"
-        }
-    }
-    
-    private func getAIServiceColor(_ serviceId: String) -> Color {
-        switch serviceId {
-        case "deepseek": return .purple
-        case "kimi": return .orange
-        case "doubao": return .blue
-        case "wenxin": return .red
-        case "yuanbao": return .pink
-        case "chatglm": return .yellow
-        case "tongyi": return .cyan
-        case "claude": return .indigo
-        case "chatgpt": return .green
-        default: return .gray
-        }
-    }
-    
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
-
-// MARK: - 对话会话列表
-struct ChatSessionListView: View {
-    @ObservedObject var chatManager = AIChatManager.shared
-    @Environment(\.presentationMode) var presentationMode
-    
-    var body: some View {
-        NavigationView {
-            List {
-                if chatManager.chatSessions.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        
-                        Text("暂无对话历史")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .listRowBackground(Color.clear)
-                } else {
-                    ForEach(chatManager.chatSessions) { session in
-                        ChatSessionRow(session: session) {
-                            chatManager.continueChat(session: session)
-                            presentationMode.wrappedValue.dismiss()
-                        }
-                    }
-                    .onDelete(perform: deleteSessions)
-                }
-            }
-            .navigationTitle("对话历史")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button("关闭") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            )
-        }
-    }
-    
-    private func deleteSessions(offsets: IndexSet) {
-        for index in offsets {
-            let session = chatManager.chatSessions[index]
-            chatManager.deleteSession(session)
-        }
-    }
-}
-
-// MARK: - 对话会话行
-struct ChatSessionRow: View {
-    let session: AIChatSession
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // AI服务图标
-                Image(systemName: getAIServiceIcon(session.aiService))
-                    .font(.title2)
-                    .foregroundColor(getAIServiceColor(session.aiService))
-                    .frame(width: 40, height: 40)
-                    .background(
-                        Circle()
-                            .fill(getAIServiceColor(session.aiService).opacity(0.1))
-                    )
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    if let lastMessage = session.messages.last {
-                        Text(lastMessage.content)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                    
-                    Text(formatDate(session.lastUpdated))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(session.messages.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text("条消息")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-    
-    private func getAIServiceIcon(_ serviceId: String) -> String {
-        switch serviceId {
-        case "deepseek": return "brain.head.profile"
-        case "kimi": return "moon.stars"
-        case "doubao": return "bubble.left.and.bubble.right"
-        case "wenxin": return "doc.text"
-        case "yuanbao": return "diamond"
-        case "chatglm": return "lightbulb.fill"
-        case "tongyi": return "cloud.fill"
-        case "claude": return "sparkles"
-        case "chatgpt": return "bubble.left.and.bubble.right.fill"
-        default: return "brain.head.profile"
-        }
-    }
-    
-    private func getAIServiceColor(_ serviceId: String) -> Color {
-        switch serviceId {
-        case "deepseek": return .purple
-        case "kimi": return .orange
-        case "doubao": return .blue
-        case "wenxin": return .red
-        case "yuanbao": return .pink
-        case "chatglm": return .yellow
-        case "tongyi": return .cyan
-        case "claude": return .indigo
-        case "chatgpt": return .green
-        default: return .gray
-        }
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        chatManager.sendMessage(trimmedText)
+        messageText = ""
     }
 }
 
@@ -766,7 +374,7 @@ struct AutoTestPanel: View {
         VStack(spacing: 12) {
             // 标题栏
             HStack {
-                Text("🔧 AI对话初始化测试")
+                Text("🔧 自动测试面板")
                     .font(.headline)
                     .foregroundColor(.primary)
                 
@@ -845,3 +453,10 @@ struct AutoTestPanel: View {
         .padding(.horizontal)
     }
 }
+
+// MARK: - 预览
+struct AIChatViewWithAutoTest_Previews: PreviewProvider {
+    static var previews: some View {
+        AIChatViewWithAutoTest()
+    }
+} 

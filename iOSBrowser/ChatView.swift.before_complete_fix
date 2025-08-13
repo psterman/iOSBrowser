@@ -597,6 +597,8 @@ struct ChatView: View {
 // MARK: - 平台热榜内容视图
 struct PlatformHotTrendsContentView: View {
     let contact: AIContact
+    let onBack: () -> Void
+    @State private var selectedItem: HotTrendItem?
     @State private var showingItemDetail = false
 
     private var hotTrends: HotTrendsList? {
@@ -654,6 +656,8 @@ struct PlatformHotTrendsContentView: View {
 // MARK: - 平台头部信息视图
 struct PlatformHeaderInfoView: View {
     let contact: AIContact
+    let onBack: () -> Void
+
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 16) {
@@ -808,6 +812,7 @@ struct PlatformLoadingView: View {
 // MARK: - 平台空状态视图
 struct PlatformEmptyStateView: View {
     let contact: AIContact
+    let onBack: () -> Void    let onRetry: () -> Void
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle")
@@ -836,6 +841,7 @@ struct PlatformEmptyStateView: View {
 struct PlatformItemDetailView: View {
     let item: HotTrendItem
     let contact: AIContact
+    let onBack: () -> Void    @Environment(\.presentationMode) var presentationMode
     var body: some View {
         NavigationView {
             ScrollView {

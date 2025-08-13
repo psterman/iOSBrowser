@@ -3202,7 +3202,7 @@ struct ContentView: View {
         )
         
         successAlert.addAction(UIAlertAction(title: "测试连接", style: .default) { _ in
-            print("🔧 测试连接: (contactId)")
+            self.startAIChatTest(for: contactId)
         })
         
         successAlert.addAction(UIAlertAction(title: "确定", style: .default))
@@ -4154,9 +4154,6 @@ struct ChatView: View {
         if contact.id == "openai" {
             print("🎯 确认调用OpenAI API")
             callOpenAIAPIDirectly(message: message, apiKey: apiKey)
-        } else if contact.id == "deepseek" {
-            print("🎯 确认调用DeepSeek API")
-            callDeepSeekAPIDirectly(message: message, apiKey: apiKey)
         } else {
             showUnsupportedServiceError()
         }
@@ -4289,117 +4286,6 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - DeepSeek API调用
-    private func callDeepSeekAPIDirectly(message: String, apiKey: String) {
-        print("🚀 开始DeepSeek API调用")
-
-        guard let url = URL(string: "https://api.deepseek.com/v1/chat/completions") else {
-            showAPIError("无效的DeepSeek API地址")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 30.0 // DeepSeek可能需要更长的超时时间
-
-        let requestBody: [String: Any] = [
-            "model": "deepseek-chat",
-            "messages": [
-                [
-                    "role": "user",
-                    "content": message
-                ]
-            ],
-            "max_tokens": 2000,
-            "temperature": 0.7
-        ]
-
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            showAPIError("DeepSeek请求数据编码失败: \(error.localizedDescription)")
-            return
-        }
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                // 重置加载状态
-                self.isLoading = false
-                
-                if let error = error {
-                    print("❌ DeepSeek网络错误: \(error.localizedDescription)")
-                    self.showAPIError("DeepSeek网络连接失败: \(error.localizedDescription)")
-                    return
-                }
-
-                if let httpResponse = response as? HTTPURLResponse {
-                    print("📊 DeepSeek HTTP状态码: \(httpResponse.statusCode)")
-
-                    if httpResponse.statusCode != 200 {
-                        self.showAPIError("DeepSeek API调用失败，状态码: \(httpResponse.statusCode)")
-                        return
-                    }
-                }
-
-                guard let data = data else {
-                    self.showAPIError("DeepSeek未收到响应数据")
-                    return
-                }
-
-                self.parseDeepSeekAPIResponse(data: data)
-            }
-        }.resume()
-    }
-
-    private func parseDeepSeekAPIResponse(data: Data) {
-        do {
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                // 检查是否有错误
-                if let error = json["error"] as? [String: Any],
-                   let message = error["message"] as? String {
-                    showAPIError("DeepSeek API错误: \(message)")
-                    return
-                }
-
-                // 解析正常响应
-                guard let choices = json["choices"] as? [[String: Any]],
-                      let firstChoice = choices.first,
-                      let message = firstChoice["message"] as? [String: Any],
-                      let content = message["content"] as? String else {
-                    showAPIError("DeepSeek响应格式错误，无法提取AI回复内容")
-                    return
-                }
-
-                print("✅ 成功提取DeepSeek回复: \(content.prefix(50))...")
-
-                let aiResponse = ChatMessage(
-                    id: UUID().uuidString,
-                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
-                    isFromUser: false,
-                    timestamp: Date(),
-                    status: .sent,
-                    actions: [],
-                    isHistorical: false,
-                    aiSource: contact.name,
-                    isStreaming: false,
-                    avatar: getAIAvatar(),
-                    isFavorited: false,
-                    isEdited: false
-                )
-
-                self.messages.append(aiResponse)
-                self.saveHistoryMessages() // 保存AI响应
-                self.isLoading = false
-
-                print("✅ DeepSeek API调用完全成功")
-            }
-        } catch {
-            showAPIError("DeepSeek响应解析失败: \(error.localizedDescription)")
-        }
-    }
-
     private func showAPIKeyMissingError() {
         isLoading = false
 
@@ -4477,7 +4363,6 @@ struct ChatView: View {
 
         当前仅支持：
         • OpenAI
-        • DeepSeek
 
         请选择支持的AI服务进行对话。
         """
@@ -4549,6 +4434,7 @@ struct ChatView: View {
         messageText = content
     }
     
+    // MARK: - 网络状态检查
     private func checkNetworkStatus() {
         // 简单的网络连接检查，添加超时保护
         guard let url = URL(string: "https://www.apple.com") else { return }
@@ -4573,6 +4459,7 @@ struct ChatView: View {
         // 添加超时保护，避免网络检查阻塞
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
             task.cancel()
+            print("⏰ 网络状态检查超时，已取消")
         }
         
         task.resume()
@@ -4581,7 +4468,7 @@ struct ChatView: View {
     private func showNetworkStatusWarning() {
         let warningMessage = ChatMessage(
             id: UUID().uuidString,
-            content: "⚠️ 网络连接可能不稳定，建议检查网络设置",
+            content: "⚠️ 网络连接可能不稳定，建议检查网络设置后重试",
             isFromUser: false,
             timestamp: Date(),
             status: .sent,
@@ -5149,7 +5036,7 @@ struct SimpleAIChatView: View {
         )
         
         successAlert.addAction(UIAlertAction(title: "测试连接", style: .default) { _ in
-            print("🔧 测试连接: (contactId)")
+            self.startAIChatTest(for: contactId)
         })
         
         successAlert.addAction(UIAlertAction(title: "确定", style: .default))
@@ -5763,10 +5650,23 @@ struct SimpleAIChatView: View {
     // MARK: - 系统资源检查
     
     private func getMemoryUsage() -> String {
-        // 简化的内存使用检查
-        let memoryUsageMB = Double(ProcessInfo.processInfo.physicalMemory) / 1024.0 / 1024.0
-        return String(format: "%.1f", memoryUsageMB)
-    }    
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/MemoryLayout<natural_t>.size
+        
+        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self(), task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        
+        if kerr == KERN_SUCCESS {
+            let memoryUsageMB = Double(info.resident_size) / 1024.0 / 1024.0
+            return String(format: "%.1f", memoryUsageMB)
+        } else {
+            return "未知"
+        }
+    }
+    
     private func getDiskSpace() -> String {
         do {
             let attributes = try FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())
@@ -5880,11 +5780,6 @@ struct SimpleAIChatView: View {
         .sheet(isPresented: $showingContactsManagement) {
             SimpleContactsManagementView()
         }
-        .sheet(isPresented: $showingDirectChat) {
-            if let contact = currentContact {
-                ChatView(contact: contact, onBack: { showingDirectChat = false })
-            }
-        }
     }
 
     private func startDirectChat(with assistantId: String) {
@@ -5939,7 +5834,6 @@ struct SimpleAIChatView: View {
         print("🔍 搜索聊天历史: \(query)")
         // TODO: 实现历史记录搜索
     }
-}
 
 // MARK: - 智能搜索框组件
 struct SmartSearchBar: View {

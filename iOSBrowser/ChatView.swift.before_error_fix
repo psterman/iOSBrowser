@@ -8,9 +8,14 @@
 import SwiftUI
 
 struct ChatView: View {
-    let contact: AIContact
-    let onBack: () -> Void
-    @State private var messages: [ChatMessage] = []
+
+    // MARK: - 兼容的初始化方法
+    init(contact: AIContact, onBack: (() -> Void)? = nil) {
+        self.contact = contact
+        self.onBack = onBack
+    }    let contact: AIContact
+    let onBack: (() -> Void)?
+    @State private var dragOffset: CGSize = .zero    @State private var messages: [ChatMessage] = []
     @State private var isLoading = false
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject private var hotTrendsManager = MockHotTrendsManager.shared
@@ -23,7 +28,8 @@ struct ChatView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            if isPlatformContact {
+        }
+        .offset(x: dragOffset.x * 0.3)            if isPlatformContact {
                 // 平台热榜界面
                 PlatformHotTrendsContentView(contact: contact)
             } else {
@@ -33,7 +39,11 @@ struct ChatView: View {
         }
         .navigationTitle(contact.name)
         .navigationBarBackButtonHidden(true)
-        .navigationBarItems(leading: Button(action: onBack) {
+        .navigationBarItems(leading: Button(action: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                onBack?()
+            }
+        }) {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
                 Text("返回")
@@ -48,7 +58,8 @@ struct ChatView: View {
     // 传统AI聊天界面
     private func TraditionalChatView() -> some View {
         VStack(spacing: 0) {
-            // 聊天消息列表
+        }
+        .offset(x: dragOffset.x * 0.3)            // 聊天消息列表
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(messages) { message in
@@ -605,7 +616,8 @@ struct PlatformHotTrendsContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 平台头部信息
+        }
+        .offset(x: dragOffset.x * 0.3)            // 平台头部信息
             PlatformHeaderInfoView(contact: contact)
 
             // 热榜内容

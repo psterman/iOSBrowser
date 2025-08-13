@@ -1,6 +1,8 @@
 //
+//  BrowserView.swift
 //  iOSBrowser
 //
+//  Created by LZH on 2025/7/19.
 //
 
 import SwiftUI
@@ -11,9 +13,155 @@ import Foundation
 // MARK: - AI对话相关类型定义
 
 // AI对话消息
+struct AIChatMessage: Identifiable, Codable {
+    let id = UUID()
+    let content: String
+    let isUser: Bool
+    let timestamp: Date
+    let aiService: String
+}
 
 // AI对话会话
+struct AIChatSession: Identifiable, Codable {
+    let id = UUID()
+    let aiService: String
+    let title: String
+    let messages: [AIChatMessage]
+    let createdAt: Date
+    let lastUpdated: Date
+}
 
+// AI对话管理器
+class AIChatManager: ObservableObject {
+    static let shared = AIChatManager()
+    
+    @Published var currentSession: AIChatSession?
+    @Published var chatSessions: [AIChatSession] = []
+    @Published var isChatActive = false
+    
+    private let userDefaults = UserDefaults.standard
+    private let chatSessionsKey = "AIChatSessions"
+    
+    init() {
+        loadChatSessions()
+    }
+    
+    // MARK: - 会话管理
+    
+    func startNewChat(with aiService: AIService) {
+        let newSession = AIChatSession(
+            aiService: aiService.id,
+            title: "与 \(aiService.name) 的对话",
+            messages: [],
+            createdAt: Date(),
+            lastUpdated: Date()
+        )
+        
+        currentSession = newSession
+        isChatActive = true
+        
+        // 添加到会话列表
+        chatSessions.insert(newSession, at: 0)
+        saveChatSessions()
+    }
+    
+    func continueChat(session: AIChatSession) {
+        currentSession = session
+        isChatActive = true
+    }
+    
+    func closeChat() {
+        isChatActive = false
+        currentSession = nil
+    }
+    
+    // MARK: - 消息管理
+    
+    func sendMessage(_ content: String) {
+        guard let session = currentSession, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        let userMessage = AIChatMessage(
+            content: content,
+            isUser: true,
+            timestamp: Date(),
+            aiService: session.aiService
+        )
+        
+        // 添加用户消息
+        var updatedMessages = session.messages
+        updatedMessages.append(userMessage)
+        
+        // 创建AI回复（模拟）
+        let aiReply = AIChatMessage(
+            content: generateAIResponse(for: content, aiService: session.aiService),
+            isUser: false,
+            timestamp: Date(),
+            aiService: session.aiService
+        )
+        
+        updatedMessages.append(aiReply)
+        
+        // 更新会话
+        let updatedSession = AIChatSession(
+            aiService: session.aiService,
+            title: session.title,
+            messages: updatedMessages,
+            createdAt: session.createdAt,
+            lastUpdated: Date()
+        )
+        
+        currentSession = updatedSession
+        
+        // 更新会话列表
+        if let index = chatSessions.firstIndex(where: { $0.id == session.id }) {
+            chatSessions[index] = updatedSession
+        }
+        
+        saveChatSessions()
+    }
+    
+    // MARK: - 会话统计
+    
+    func getSessionCount(for aiService: String) -> Int {
+        return chatSessions.filter { $0.aiService == aiService }.count
+    }
+    
+    func getRecentSessions(for aiService: String, limit: Int = 5) -> [AIChatSession] {
+        return Array(chatSessions.filter { $0.aiService == aiService }.prefix(limit))
+    }
+    
+    func deleteSession(_ session: AIChatSession) {
+        chatSessions.removeAll { $0.id == session.id }
+        if currentSession?.id == session.id {
+            currentSession = nil
+            isChatActive = false
+        }
+        saveChatSessions()
+    }
+    
+    // MARK: - 数据持久化
+    
+    private func saveChatSessions() {
+        if let data = try? JSONEncoder().encode(chatSessions) {
+            userDefaults.set(data, forKey: chatSessionsKey)
+        }
+    }
+    
+    private func loadChatSessions() {
+        if let data = userDefaults.data(forKey: chatSessionsKey),
+           let sessions = try? JSONDecoder().decode([AIChatSession].self, from: data) {
+            chatSessions = sessions
+        }
+    }
+    
+    // MARK: - 辅助方法
+    
+    private func generateAIResponse(for content: String, aiService: String) -> String {
+        // TODO: 这里应该调用真实的AI API
+        // 目前显示占位符消息
+        return "正在处理您的请求，请稍候..."
+    }
+}
 
 // MARK: - AI对话视图
 struct SavedPrompt: Identifiable, Codable, Equatable {
@@ -152,6 +300,8 @@ struct BrowserView: View {
     // 全局Prompt状态管理
     @StateObject private var promptManager = GlobalPromptManager.shared
 
+    // AI对话管理器
+    @StateObject private var aiChatManager = AIChatManager.shared
 
     // 新增：Toast类型枚举
     enum ToastType {
@@ -587,7 +737,7 @@ struct BrowserView: View {
         .sheet(isPresented: $showingPromptManager) {
             PromptManagerView(promptManager: promptManager)
         }
-        .sheet(isPresented: $showingAIChat) {
+        .sheet(isPresented: $aiChatManager.isChatActive) {
             TemporaryAIChatView()
         }
         .toast(isPresented: $showingToast) {
@@ -663,6 +813,7 @@ struct BrowserView: View {
                                 aiDrawerOffset = 300
                                 
                                 // 激活真正的AI对话
+                                aiChatManager.startNewChat(with: service)
                             }
                         }
                     )
@@ -880,6 +1031,7 @@ struct BrowserView: View {
     private func showPasteMenu() {
         let alertController = UIAlertController(title: "粘贴选项", message: nil, preferredStyle: .actionSheet)
         
+        // 1. 正常粘贴：剪贴板的文本
         if let clipboardText = UIPasteboard.general.string, !clipboardText.isEmpty {
             let truncatedText = String(clipboardText.prefix(30)) + (clipboardText.count > 30 ? "..." : "")
             alertController.addAction(UIAlertAction(title: "正常粘贴: \(truncatedText)", style: .default) { _ in
@@ -887,6 +1039,7 @@ struct BrowserView: View {
             })
         }
         
+        // 2. 特殊粘贴：粘贴智能提示中用户已经勾选的prompt选项
         if let currentPrompt = promptManager.currentPrompt {
             let truncatedPrompt = String(currentPrompt.content.prefix(30)) + (currentPrompt.content.count > 30 ? "..." : "")
             alertController.addAction(UIAlertAction(title: "特殊粘贴: \(truncatedPrompt)", style: .default) { _ in
@@ -894,6 +1047,7 @@ struct BrowserView: View {
             })
         }
         
+        // 3. 打开系统剪贴板，展示最近的复制内容
         alertController.addAction(UIAlertAction(title: "打开系统剪贴板", style: .default) { _ in
             self.showSystemClipboard()
         })
@@ -2506,6 +2660,7 @@ struct AIDrawerView: View {
     let aiServices: [AIService]
     @Binding var isPresented: Bool
     let onAISelected: (AIService) -> Void
+    @ObservedObject private var aiChatManager = AIChatManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -2539,12 +2694,13 @@ struct AIDrawerView: View {
                     ForEach(aiServices, id: \.id) { service in
                         AIDrawerItem(
                             service: service,
-                            sessionCount: 0,
-                            recentSessions: [],
+                            sessionCount: aiChatManager.getSessionCount(for: service.id),
+                            recentSessions: aiChatManager.getRecentSessions(for: service.id, limit: 3),
                             onTap: {
                                 onAISelected(service)
                             },
                             onSessionTap: { session in
+                                aiChatManager.continueChat(session: session)
                                 isPresented = false
                             }
                         )
@@ -2560,26 +2716,12 @@ struct AIDrawerView: View {
 }
 
 // MARK: - 抽屉式AI服务项目
-// MARK: - 正确的数据结构
-struct AISession: Identifiable {
-    let id = UUID()
-    let title: String
-    let lastUpdated: Date
-    let messages: [AIMessage]
-}
-
-struct AIMessage: Identifiable {
-    let id = UUID()
-    let content: String
-    let timestamp: Date
-}
-
 struct AIDrawerItem: View {
     let service: AIService
     let sessionCount: Int
-    let recentSessions: [Any]
+    let recentSessions: [AIChatSession]
     let onTap: () -> Void
-    let onSessionTap: (Any) -> Void
+    let onSessionTap: (AIChatSession) -> Void
     @State private var showingSessions = false
     
     var body: some View {
@@ -2629,7 +2771,7 @@ struct AIDrawerItem: View {
                     Divider()
                         .padding(.horizontal, 20)
                     
-                    ForEach(Array(recentSessions.enumerated()), id: \.offset) { session in
+                    ForEach(recentSessions) { session in
                         Button(action: {
                             onSessionTap(session)
                         }) {
@@ -2640,79 +2782,45 @@ struct AIDrawerItem: View {
                                     .frame(width: 20, height: 20)
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-}
-}
-}
-}
-}
-}
-}
-}
-}
-
-// MARK: - 临时AI聊天视图
-struct TemporaryAIChatView: View {
-    @State private var messageText = ""
-    @State private var messages: [String] = []
-    
-    var body: some View {
-        VStack {
-            // 标题栏
-            HStack {
-                Text("AI 聊天")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Button("清空") {
-                    messages.removeAll()
-                }
-                .foregroundColor(.red)
-            }
-            .padding()
-            
-            // 消息列表
-            ScrollView {
-                LazyVStack(spacing: 10) {
-                    ForEach(messages.indices, id: \.self) { index in
-                        HStack {
-                            if index % 2 == 0 {
+                                    Text(session.title)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.primary)
+                                    
+                                    if let lastMessage = session.messages.last {
+                                        Text(lastMessage.content)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                
                                 Spacer()
-                                Text(messages[index])
-                                    .padding()
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(10)
-                            } else {
-                                Text(messages[index])
-                                    .padding()
-                                    .background(Color.gray.opacity(0.3))
-                                    .cornerRadius(10)
-                                Spacer()
+                                
+                                Text(formatDate(session.lastUpdated))
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(Color(.systemGray6))
                         }
-                        .padding(.horizontal)
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        if session.id != recentSessions.last?.id {
+                            Divider()
+                                .padding(.horizontal, 40)
+                        }
                     }
                 }
             }
-            
-            // 输入框
-            HStack {
-                TextField("输入消息...", text: $messageText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                Button("发送") {
-                    if !messageText.isEmpty {
-                        messages.append(messageText)
-                        messageText = ""
-                    }
-                }
-                .disabled(messageText.isEmpty)
-            }
-            .padding()
         }
-        .background(Color(.systemBackground))
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 }
 
@@ -2782,33 +2890,79 @@ struct SearchEngineDrawerItem: View {
             HStack(spacing: 12) {
                 Image(systemName: engine.icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(engine.color)
+                    .foregroundColor(isSelected ? .white : engine.color)
                     .frame(width: 24, height: 24)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(engine.name)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(isSelected ? .white : .primary)
                     
-                    Text(engine.url)
+                    Text(getEngineCategory(engine.id))
                         .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                 }
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.blue)
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .background(isSelected ? Color(.systemBlue).opacity(0.1) : Color(.systemBackground))
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? engine.color : Color.clear)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func getEngineCategory(_ engineId: String) -> String {
+        switch engineId {
+        case "baidu", "bing":
+            return "搜索"
+        case "wenxin", "doubao", "yuanbao", "kimi", "deepseek", "tongyi", "xunfei", "metaso", "gemini", "chatgpt", "ima", "perplexity", "chatglm", "tiangong", "you", "nano", "copilot", "keling":
+            return "AI对话"
+        default:
+            return "其他"
+        }
+    }
+}
+
+
+
+// MARK: - 临时AI聊天视图（解决导入问题）
+struct TemporaryAIChatView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 64))
+                .foregroundColor(.blue)
+            
+            Text("AI聊天界面")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("正在加载修复版本...")
+                .font(.body)
+                .foregroundColor(.secondary)
+            
+            Button("配置API密钥") {
+                // 这里可以添加配置逻辑
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(8)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
     }
 }
