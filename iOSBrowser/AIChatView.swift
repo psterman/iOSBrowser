@@ -752,7 +752,7 @@ struct ChatSessionRow: View {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
-}
+} 
 
 // MARK: - 自动测试面板
 struct AutoTestPanel: View {

@@ -3931,6 +3931,7 @@ struct ChatView: View {
     @State private var messages: [ChatMessage] = []
     @State private var isLoading = false
     @State private var dragOffset: CGSize = .zero
+    @State private var aiResponseStatus: [String: AIResponseStatus] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -4157,6 +4158,15 @@ struct ChatView: View {
         } else if contact.id == "deepseek" {
             print("🎯 确认调用DeepSeek API")
             callDeepSeekAPIDirectly(message: message, apiKey: apiKey)
+        } else if contact.id == "claude" {
+            print("🎯 确认调用Claude API")
+            callClaudeAPIDirectly(message: message, apiKey: apiKey)
+        } else if contact.id == "gemini" {
+            print("🎯 确认调用Gemini API")
+            callGeminiAPIDirectly(message: message, apiKey: apiKey)
+        } else if contact.id == "chatglm" {
+            print("🎯 确认调用智谱清言 API")
+            callChatGLMAPIDirectly(message: message, apiKey: apiKey)
         } else {
             showUnsupportedServiceError()
         }
@@ -4478,6 +4488,9 @@ struct ChatView: View {
         当前仅支持：
         • OpenAI
         • DeepSeek
+        • Claude
+        • Gemini
+        • 智谱清言
 
         请选择支持的AI服务进行对话。
         """
@@ -4634,6 +4647,332 @@ struct ChatView: View {
     private func parseStreamingResponse(data: Data, messageIndex: Int) {
         // 流式响应已禁用，此方法保留但不使用
         print("⚠️ 流式响应已禁用")
+    }
+    
+    // MARK: - Claude API调用
+    private func callClaudeAPIDirectly(message: String, apiKey: String) {
+        print("🚀 开始Claude API调用")
+
+        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+            showAPIError("无效的Claude API地址")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.timeoutInterval = 15.0
+
+        let requestBody: [String: Any] = [
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 2000,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ]
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("Claude请求数据编码失败: \(error.localizedDescription)")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                // 重置加载状态
+                self.isLoading = false
+                
+                if let error = error {
+                    print("❌ Claude网络错误: \(error.localizedDescription)")
+                    self.showAPIError("Claude网络连接失败: \(error.localizedDescription)")
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 Claude HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("Claude API调用失败，状态码: \(httpResponse.statusCode)")
+                        return
+                    }
+                }
+
+                guard let data = data else {
+                    self.showAPIError("Claude未收到响应数据")
+                    return
+                }
+
+                self.parseClaudeAPIResponse(data: data)
+            }
+        }.resume()
+    }
+    
+    private func parseClaudeAPIResponse(data: Data) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("Claude API错误: \(message)")
+                    return
+                }
+                
+                guard let content = json["content"] as? [[String: Any]],
+                      let firstContent = content.first,
+                      let text = firstContent["text"] as? String else {
+                    showAPIError("Claude响应格式错误，无法提取AI回复内容")
+                    return
+                }
+                
+                print("✅ 成功提取Claude回复: \(text.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                messages.append(aiResponse)
+                saveHistoryMessages()
+                
+                print("✅ Claude API调用完全成功")
+            }
+        } catch {
+            showAPIError("Claude响应解析失败: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Gemini API调用
+    private func callGeminiAPIDirectly(message: String, apiKey: String) {
+        print("🚀 开始Gemini API调用")
+
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=\(apiKey)") else {
+            showAPIError("无效的Gemini API地址")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15.0
+
+        let requestBody: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        [
+                            "text": message
+                        ]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "maxOutputTokens": 2000,
+                "temperature": 0.7
+            ]
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("Gemini请求数据编码失败: \(error.localizedDescription)")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                // 重置加载状态
+                self.isLoading = false
+                
+                if let error = error {
+                    print("❌ Gemini网络错误: \(error.localizedDescription)")
+                    self.showAPIError("Gemini网络连接失败: \(error.localizedDescription)")
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 Gemini HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("Gemini API调用失败，状态码: \(httpResponse.statusCode)")
+                        return
+                    }
+                }
+
+                guard let data = data else {
+                    self.showAPIError("Gemini未收到响应数据")
+                    return
+                }
+
+                self.parseGeminiAPIResponse(data: data)
+            }
+        }.resume()
+    }
+    
+    private func parseGeminiAPIResponse(data: Data) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("Gemini API错误: \(message)")
+                    return
+                }
+                
+                guard let candidates = json["candidates"] as? [[String: Any]],
+                      let firstCandidate = candidates.first,
+                      let content = firstCandidate["content"] as? [String: Any],
+                      let parts = content["parts"] as? [[String: Any]],
+                      let firstPart = parts.first,
+                      let text = firstPart["text"] as? String else {
+                    showAPIError("Gemini响应格式错误，无法提取AI回复内容")
+                    return
+                }
+                
+                print("✅ 成功提取Gemini回复: \(text.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                messages.append(aiResponse)
+                saveHistoryMessages()
+                
+                print("✅ Gemini API调用完全成功")
+            }
+        } catch {
+            showAPIError("Gemini响应解析失败: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - 智谱清言API调用
+    private func callChatGLMAPIDirectly(message: String, apiKey: String) {
+        print("🚀 开始智谱清言API调用")
+
+        guard let url = URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions") else {
+            showAPIError("无效的智谱清言API地址")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 15.0
+
+        let requestBody: [String: Any] = [
+            "model": "glm-4",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7,
+            "stream": false
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("智谱清言请求数据编码失败: \(error.localizedDescription)")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                // 重置加载状态
+                self.isLoading = false
+                
+                if let error = error {
+                    print("❌ 智谱清言网络错误: \(error.localizedDescription)")
+                    self.showAPIError("智谱清言网络连接失败: \(error.localizedDescription)")
+                    return
+                }
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 智谱清言HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("智谱清言API调用失败，状态码: \(httpResponse.statusCode)")
+                        return
+                    }
+                }
+
+                guard let data = data else {
+                    self.showAPIError("智谱清言未收到响应数据")
+                    return
+                }
+
+                self.parseChatGLMAPIResponse(data: data)
+            }
+        }.resume()
+    }
+    
+    private func parseChatGLMAPIResponse(data: Data) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("智谱清言API错误: \(message)")
+                    return
+                }
+                
+                guard let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first,
+                      let message = firstChoice["message"] as? [String: Any],
+                      let content = message["content"] as? String else {
+                    showAPIError("智谱清言响应格式错误，无法提取AI回复内容")
+                    return
+                }
+                
+                print("✅ 成功提取智谱清言回复: \(content.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                messages.append(aiResponse)
+                saveHistoryMessages()
+                
+                print("✅ 智谱清言API调用完全成功")
+            }
+        } catch {
+            showAPIError("智谱清言响应解析失败: \(error.localizedDescription)")
+        }
     }
 }
 
@@ -4920,7 +5259,9 @@ struct SimpleAIChatView: View {
         AIContact(id: "stablediffusion", name: "Stable Diffusion", description: "开源AI图像生成", model: "stable-diffusion-xl", avatar: "camera.macro.circle.fill", isOnline: true, apiEndpoint: "https://api.stability.ai", requiresApiKey: true, supportedFeatures: [.imageGeneration], color: .orange),
         
         // 🤖 专业AI助手
-        AIContact(id: "deepseek", name: "DeepSeek", description: "专业的AI编程助手", model: "deepseek-chat", avatar: "brain.head.profile", isOnline: true, apiEndpoint: "https://api.deepseek.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple)
+        AIContact(id: "deepseek", name: "DeepSeek", description: "专业的AI编程助手", model: "deepseek-chat", avatar: "brain.head.profile", isOnline: true, apiEndpoint: "https://api.deepseek.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
+        AIContact(id: "qwen", name: "通义千问", description: "阿里云大语言模型", model: "qwen-max", avatar: "cloud.fill", isOnline: true, apiEndpoint: "https://dashscope.aliyuncs.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .translation, .summarization], color: .cyan),
+        AIContact(id: "chatglm", name: "智谱清言", description: "智谱AI大语言模型", model: "glm-4", avatar: "brain.head.profile", isOnline: true, apiEndpoint: "https://open.bigmodel.cn", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .indigo)
     ]
 
     // 已启用的联系人列表
@@ -5849,7 +6190,7 @@ struct SimpleAIChatView: View {
                     },
                     onConfigAPI: {
                         selectedContactForAPI = contact
-                            showingContactAPIConfig = true
+                        showingContactAPIConfig = true
                     },
                     onPin: {
                         apiManager.setPinned(contact.id, pinned: !apiManager.isPinned(contact.id))
@@ -6527,6 +6868,14 @@ func processInlineCode(_ text: String) -> [SimpleMarkdownElement] {
     return elements
 }
 
+// MARK: - AI回答状态枚举
+enum AIResponseStatus {
+    case waiting      // 等待回答
+    case typing       // 正在输入
+    case completed    // 回答完成
+    case error        // 回答出错
+}
+
 // MARK: - 多AI聊天视图
 struct MultiAIChatView: View {
     let selectedContacts: [AIContact]
@@ -6535,6 +6884,7 @@ struct MultiAIChatView: View {
     @State private var messages: [ChatMessage] = []
     @State private var isLoading = false
     @State private var dragOffset: CGSize = .zero
+    @State private var aiResponseStatus: [String: AIResponseStatus] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -6592,11 +6942,27 @@ struct MultiAIChatView: View {
                                 Image(systemName: contact.avatar)
                                     .font(.title3)
                                     .foregroundColor(.white)
+                                
+                                // AI回答状态指示器
+                                Circle()
+                                    .fill(getStatusColor(for: contact.id))
+                                    .frame(width: 12, height: 12)
+                                    .overlay(
+                                        getStatusIcon(for: contact.id)
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.white)
+                                            .rotationEffect(.degrees(getStatusRotation(for: contact.id)))
+                                    )
+                                    .offset(x: 15, y: -15)
+                                    .scaleEffect(getStatusScale(for: contact.id))
+                                    .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: getStatusScale(for: contact.id))
+                                    .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: getStatusRotation(for: contact.id))
                             }
 
                             Text(contact.name)
                                 .font(.caption)
                                 .lineLimit(1)
+                                .foregroundColor(getStatusColor(for: contact.id))
                         }
                     }
                 }
@@ -6698,11 +7064,81 @@ struct MultiAIChatView: View {
         messageText = ""
         isLoading = true
 
+        // 初始化所有AI的状态为等待
+        for contact in selectedContacts {
+            aiResponseStatus[contact.id] = .waiting
+        }
+        
         // 调用真实的AI API
         for (index, contact) in selectedContacts.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.3) {
+                // 设置状态为正在输入
+                self.aiResponseStatus[contact.id] = .typing
                 self.callRealAIAPI(for: contact, message: currentMessage, index: index, totalCount: self.selectedContacts.count)
             }
+        }
+    }
+    
+    // MARK: - 状态管理函数
+    private func getStatusColor(for contactId: String) -> Color {
+        guard let status = aiResponseStatus[contactId] else { return .gray }
+        
+        switch status {
+        case .waiting:
+            return .orange
+        case .typing:
+            return .blue
+        case .completed:
+            return .green
+        case .error:
+            return .red
+        }
+    }
+    
+    private func getStatusIcon(for contactId: String) -> Image {
+        guard let status = aiResponseStatus[contactId] else { 
+            return Image(systemName: "questionmark.circle.fill")
+        }
+        
+        switch status {
+        case .waiting:
+            return Image(systemName: "clock.fill")
+        case .typing:
+            return Image(systemName: "pencil.circle.fill")
+        case .completed:
+            return Image(systemName: "checkmark.circle.fill")
+        case .error:
+            return Image(systemName: "exclamationmark.circle.fill")
+        }
+    }
+    
+    private func getStatusScale(for contactId: String) -> CGFloat {
+        guard let status = aiResponseStatus[contactId] else { return 1.0 }
+        
+        switch status {
+        case .waiting:
+            return 1.0
+        case .typing:
+            return 1.2
+        case .completed:
+            return 1.0
+        case .error:
+            return 1.0
+        }
+    }
+    
+    private func getStatusRotation(for contactId: String) -> Double {
+        guard let status = aiResponseStatus[contactId] else { return 0.0 }
+        
+        switch status {
+        case .waiting:
+            return 0.0
+        case .typing:
+            return 360.0
+        case .completed:
+            return 0.0
+        case .error:
+            return 0.0
         }
     }
 
@@ -6776,6 +7212,9 @@ struct MultiAIChatView: View {
         messages.append(errorResponse)
         saveHistoryMessages()
         
+        // 更新AI状态为错误
+        self.aiResponseStatus[contact.id] = .error
+        
         // 检查是否是最后一个AI
         if index == totalCount - 1 {
             isLoading = false
@@ -6819,6 +7258,9 @@ struct MultiAIChatView: View {
         
         messages.append(errorResponse)
         saveHistoryMessages()
+        
+        // 更新AI状态为错误
+        self.aiResponseStatus[contact.id] = .error
         
         // 检查是否是最后一个AI
         if index == totalCount - 1 {
@@ -6933,6 +7375,9 @@ struct MultiAIChatView: View {
                 self.messages.append(aiResponse)
                 self.saveHistoryMessages()
                 
+                // 更新AI状态为完成
+                self.aiResponseStatus[contact.id] = .completed
+                
                 // 检查是否是最后一个AI
                 if index == totalCount - 1 {
                     self.isLoading = false
@@ -7043,6 +7488,9 @@ struct MultiAIChatView: View {
                 self.messages.append(aiResponse)
                 self.saveHistoryMessages()
                 
+                // 更新AI状态为完成
+                self.aiResponseStatus[contact.id] = .completed
+                
                 // 检查是否是最后一个AI
                 if index == totalCount - 1 {
                     self.isLoading = false
@@ -7086,6 +7534,9 @@ struct MultiAIChatView: View {
         
         messages.append(errorResponse)
         saveHistoryMessages()
+        
+        // 更新AI状态为错误
+        self.aiResponseStatus[contact.id] = .error
         
         // 检查是否是最后一个AI
         if index == totalCount - 1 {
@@ -7190,6 +7641,9 @@ struct MultiAIChatView: View {
                 
                 self.messages.append(aiResponse)
                 self.saveHistoryMessages()
+                
+                // 更新AI状态为完成
+                self.aiResponseStatus[contact.id] = .completed
                 
                 // 检查是否是最后一个AI
                 if index == totalCount - 1 {
@@ -7306,6 +7760,9 @@ struct MultiAIChatView: View {
                 self.messages.append(aiResponse)
                 self.saveHistoryMessages()
                 
+                // 更新AI状态为完成
+                self.aiResponseStatus[contact.id] = .completed
+                
                 // 检查是否是最后一个AI
                 if index == totalCount - 1 {
                     self.isLoading = false
@@ -7325,7 +7782,116 @@ struct MultiAIChatView: View {
     }
     
     private func callChatGLMAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
-        showAPIError("智谱清言API暂未实现，请稍后使用", contact: contact, index: index, totalCount: totalCount)
+        print("🚀 开始智谱清言API调用（多AI版本）")
+        
+        guard let url = URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions") else {
+            showAPIError("无效的智谱清言API地址", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30.0
+        
+        let requestBody: [String: Any] = [
+            "model": "glm-4",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7,
+            "stream": false
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("智谱清言请求数据编码失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ 智谱清言网络错误: \(error.localizedDescription)")
+                    self.showAPIError("智谱清言网络连接失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 智谱清言HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("智谱清言API调用失败，状态码: \(httpResponse.statusCode)", contact: contact, index: index, totalCount: totalCount)
+                        return
+                    }
+                }
+                
+                guard let data = data else {
+                    self.showAPIError("智谱清言未收到响应数据", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                self.parseChatGLMAPIResponseForMultiAI(data: data, contact: contact, index: index, totalCount: totalCount)
+            }
+        }.resume()
+    }
+    
+    private func parseChatGLMAPIResponseForMultiAI(data: Data, contact: AIContact, index: Int, totalCount: Int) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("智谱清言API错误: \(message)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                guard let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first,
+                      let message = firstChoice["message"] as? [String: Any],
+                      let content = message["content"] as? String else {
+                    showAPIError("智谱清言响应格式错误，无法提取AI回复内容", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                print("✅ 成功提取智谱清言回复: \(content.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                self.messages.append(aiResponse)
+                self.saveHistoryMessages()
+                
+                // 更新AI状态为完成
+                self.aiResponseStatus[contact.id] = .completed
+                
+                // 检查是否是最后一个AI
+                if index == totalCount - 1 {
+                    self.isLoading = false
+                    print("✅ 所有AI回复完成")
+                }
+                
+                print("✅ 智谱清言API调用完全成功")
+            }
+        } catch {
+            showAPIError("智谱清言响应解析失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+        }
     }
     
     private func callKimiAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
@@ -8485,6 +9051,7 @@ struct SimpleContactsManagementView: View {
         // AI助手
         AIContact(id: "deepseek", name: "DeepSeek", description: "专业的AI编程助手", model: "deepseek-chat", avatar: "brain.head.profile", isOnline: true, apiEndpoint: "https://api.deepseek.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
         AIContact(id: "qwen", name: "通义千问", description: "阿里云大语言模型", model: "qwen-max", avatar: "cloud.fill", isOnline: true, apiEndpoint: "https://dashscope.aliyuncs.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .translation, .summarization], color: .cyan),
+        AIContact(id: "chatglm", name: "智谱清言", description: "智谱AI大语言模型", model: "glm-4", avatar: "brain.head.profile", isOnline: true, apiEndpoint: "https://open.bigmodel.cn", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .indigo),
         AIContact(id: "openai", name: "ChatGPT", description: "OpenAI对话AI", model: "gpt-4", avatar: "bubble.left.and.bubble.right.fill", isOnline: true, apiEndpoint: "https://api.openai.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .green),
         AIContact(id: "claude", name: "Claude", description: "Anthropic智能助手", model: "claude-3", avatar: "sparkles", isOnline: true, apiEndpoint: "https://api.anthropic.com", requiresApiKey: true, supportedFeatures: [.textGeneration, .codeGeneration], color: .purple),
         AIContact(id: "gemini", name: "Gemini", description: "Google AI助手", model: "gemini-pro", avatar: "diamond.fill", isOnline: true, apiEndpoint: "https://api.google.com", requiresApiKey: true, supportedFeatures: [.textGeneration], color: .blue)
