@@ -6698,12 +6698,226 @@ struct MultiAIChatView: View {
         messageText = ""
         isLoading = true
 
-        // 模拟多个AI同时响应
+        // 调用真实的AI API
         for (index, contact) in selectedContacts.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index + 1) * 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.3) {
+                self.callRealAIAPI(for: contact, message: currentMessage, index: index, totalCount: self.selectedContacts.count)
+            }
+        }
+    }
+
+    // MARK: - 真实AI API调用
+    private func callRealAIAPI(for contact: AIContact, message: String, index: Int, totalCount: Int) {
+        print("🚀 开始调用\(contact.name)的真实API")
+        
+        // 检查API密钥
+        guard let apiKey = APIConfigManager.shared.getAPIKey(for: contact.id) else {
+            showAPIKeyMissingError(contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            showAPIKeyMissingError(contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        print("✅ 找到\(contact.name)的API密钥: \(apiKey.prefix(10))...")
+        
+        // 根据联系人ID调用对应的API
+        if contact.id == "openai" {
+            callOpenAIAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "deepseek" {
+            callDeepSeekAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "claude" {
+            callClaudeAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "gemini" {
+            callGeminiAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "qwen" {
+            callQwenAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "chatglm" {
+            callChatGLMAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "moonshot" {
+            callKimiAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "doubao" {
+            callDoubaoAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else if contact.id == "wenxin" {
+            callWenxinAPIDirectlyForMultiAI(message: message, apiKey: apiKey, contact: contact, index: index, totalCount: totalCount)
+        } else {
+            showUnsupportedServiceError(contact: contact, index: index, totalCount: totalCount)
+        }
+    }
+    
+    private func showAPIKeyMissingError(contact: AIContact, index: Int, totalCount: Int) {
+        let errorMessage = """
+        ❌ [\(contact.name)] 未配置API密钥
+        
+        请按以下步骤配置：
+        1. 点击右上角设置按钮
+        2. 找到\(contact.name)配置
+        3. 输入有效的API密钥
+        4. 保存后重新尝试
+        """
+        
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: errorMessage,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: [],
+            isHistorical: false,
+            aiSource: contact.name,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
+        )
+        
+        messages.append(errorResponse)
+        saveHistoryMessages()
+        
+        // 检查是否是最后一个AI
+        if index == totalCount - 1 {
+            isLoading = false
+        }
+        
+        print("❌ \(contact.name) API密钥未配置")
+    }
+    
+    private func showUnsupportedServiceError(contact: AIContact, index: Int, totalCount: Int) {
+        let errorMessage = """
+        ❌ [\(contact.name)] 暂不支持的AI服务
+        
+        当前仅支持：
+        • OpenAI
+        • DeepSeek
+        • Claude
+        • Gemini
+        • 通义千问
+        • 智谱清言
+        • Kimi
+        • 豆包
+        • 文心一言
+        
+        请选择支持的AI服务进行对话。
+        """
+        
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: errorMessage,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: [],
+            isHistorical: false,
+            aiSource: contact.name,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
+        )
+        
+        messages.append(errorResponse)
+        saveHistoryMessages()
+        
+        // 检查是否是最后一个AI
+        if index == totalCount - 1 {
+            isLoading = false
+        }
+        
+        print("❌ \(contact.name) 不支持的AI服务")
+    }
+    
+    private func saveHistoryMessages() {
+        let key = "multi_ai_chat_history"
+        if let data = try? JSONEncoder().encode(messages) {
+            UserDefaults.standard.set(data, forKey: key)
+            print("💾 已保存多AI聊天历史: \(messages.count)条消息")
+        }
+    }
+    
+    // MARK: - OpenAI API调用（多AI版本）
+    private func callOpenAIAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        print("🚀 开始OpenAI API调用（多AI版本）")
+        
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            showAPIError("无效的OpenAI API地址", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30.0
+        
+        let requestBody: [String: Any] = [
+            "model": "gpt-4o",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("OpenAI请求数据编码失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ OpenAI网络错误: \(error.localizedDescription)")
+                    self.showAPIError("OpenAI网络连接失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 OpenAI HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("OpenAI API调用失败，状态码: \(httpResponse.statusCode)", contact: contact, index: index, totalCount: totalCount)
+                        return
+                    }
+                }
+                
+                guard let data = data else {
+                    self.showAPIError("OpenAI未收到响应数据", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                self.parseOpenAIAPIResponseForMultiAI(data: data, contact: contact, index: index, totalCount: totalCount)
+            }
+        }.resume()
+    }
+    
+    private func parseOpenAIAPIResponseForMultiAI(data: Data, contact: AIContact, index: Int, totalCount: Int) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("OpenAI API错误: \(message)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                guard let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first,
+                      let message = firstChoice["message"] as? [String: Any],
+                      let content = message["content"] as? String else {
+                    showAPIError("OpenAI响应格式错误，无法提取AI回复内容", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                print("✅ 成功提取OpenAI回复: \(content.prefix(50))...")
+                
                 let aiResponse = ChatMessage(
                     id: UUID().uuidString,
-                    content: generateAIResponse(for: currentMessage, from: contact),
+                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
                     isFromUser: false,
                     timestamp: Date(),
                     status: .sent,
@@ -6715,24 +6929,415 @@ struct MultiAIChatView: View {
                     isFavorited: false,
                     isEdited: false
                 )
-                messages.append(aiResponse)
-
-                if index == selectedContacts.count - 1 {
-                    isLoading = false
+                
+                self.messages.append(aiResponse)
+                self.saveHistoryMessages()
+                
+                // 检查是否是最后一个AI
+                if index == totalCount - 1 {
+                    self.isLoading = false
+                    print("✅ 所有AI回复完成")
                 }
+                
+                print("✅ OpenAI API调用完全成功")
             }
+        } catch {
+            showAPIError("OpenAI响应解析失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
         }
     }
-
-    private func generateAIResponse(for message: String, from contact: AIContact) -> String {
-        let responses = [
-            "[\(contact.name)] 我理解您的问题，让我来帮助您。",
-            "[\(contact.name)] 这是一个很好的问题，我来为您详细解答。",
-            "[\(contact.name)] 根据您的描述，我建议您可以尝试以下方法。",
-            "[\(contact.name)] 感谢您的提问，我很乐意为您提供帮助。",
-            "[\(contact.name)] 这个问题很有意思，让我来分析一下。"
+    
+    // MARK: - DeepSeek API调用（多AI版本）
+    private func callDeepSeekAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        print("🚀 开始DeepSeek API调用（多AI版本）")
+        
+        guard let url = URL(string: "https://api.deepseek.com/v1/chat/completions") else {
+            showAPIError("无效的DeepSeek API地址", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30.0
+        
+        let requestBody: [String: Any] = [
+            "model": "deepseek-chat",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7
         ]
-        return responses.randomElement() ?? "[\(contact.name)] 我正在思考您的问题，请稍等。"
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("DeepSeek请求数据编码失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ DeepSeek网络错误: \(error.localizedDescription)")
+                    self.showAPIError("DeepSeek网络连接失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 DeepSeek HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("DeepSeek API调用失败，状态码: \(httpResponse.statusCode)", contact: contact, index: index, totalCount: totalCount)
+                        return
+                    }
+                }
+                
+                guard let data = data else {
+                    self.showAPIError("DeepSeek未收到响应数据", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                self.parseDeepSeekAPIResponseForMultiAI(data: data, contact: contact, index: index, totalCount: totalCount)
+            }
+        }.resume()
+    }
+    
+    private func parseDeepSeekAPIResponseForMultiAI(data: Data, contact: AIContact, index: Int, totalCount: Int) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("DeepSeek API错误: \(message)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                guard let choices = json["choices"] as? [[String: Any]],
+                      let firstChoice = choices.first,
+                      let message = firstChoice["message"] as? [String: Any],
+                      let content = message["content"] as? String else {
+                    showAPIError("DeepSeek响应格式错误，无法提取AI回复内容", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                print("✅ 成功提取DeepSeek回复: \(content.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                self.messages.append(aiResponse)
+                self.saveHistoryMessages()
+                
+                // 检查是否是最后一个AI
+                if index == totalCount - 1 {
+                    self.isLoading = false
+                    print("✅ 所有AI回复完成")
+                }
+                
+                print("✅ DeepSeek API调用完全成功")
+            }
+        } catch {
+            showAPIError("DeepSeek响应解析失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+        }
+    }
+    
+    // MARK: - 通用API错误处理
+    private func showAPIError(_ errorMessage: String, contact: AIContact, index: Int, totalCount: Int) {
+        let fullErrorMessage = """
+        ❌ [\(contact.name)] API调用失败
+        
+        \(errorMessage)
+        
+        请检查：
+        • API密钥是否正确
+        • 网络连接是否正常
+        • API额度是否充足
+        """
+        
+        let errorResponse = ChatMessage(
+            id: UUID().uuidString,
+            content: fullErrorMessage,
+            isFromUser: false,
+            timestamp: Date(),
+            status: .sent,
+            actions: [],
+            isHistorical: false,
+            aiSource: contact.name,
+            isStreaming: false,
+            avatar: nil,
+            isFavorited: false,
+            isEdited: false
+        )
+        
+        messages.append(errorResponse)
+        saveHistoryMessages()
+        
+        // 检查是否是最后一个AI
+        if index == totalCount - 1 {
+            isLoading = false
+        }
+        
+        print("❌ \(contact.name) API错误: \(errorMessage)")
+    }
+    
+    // MARK: - Claude API调用（多AI版本）
+    private func callClaudeAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        print("🚀 开始Claude API调用（多AI版本）")
+        
+        guard let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+            showAPIError("无效的Claude API地址", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.timeoutInterval = 30.0
+        
+        let requestBody: [String: Any] = [
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 2000,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": message
+                ]
+            ]
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("Claude请求数据编码失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ Claude网络错误: \(error.localizedDescription)")
+                    self.showAPIError("Claude网络连接失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 Claude HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("Claude API调用失败，状态码: \(httpResponse.statusCode)", contact: contact, index: index, totalCount: totalCount)
+                        return
+                    }
+                }
+                
+                guard let data = data else {
+                    self.showAPIError("Claude未收到响应数据", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                self.parseClaudeAPIResponseForMultiAI(data: data, contact: contact, index: index, totalCount: totalCount)
+            }
+        }.resume()
+    }
+    
+    private func parseClaudeAPIResponseForMultiAI(data: Data, contact: AIContact, index: Int, totalCount: Int) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("Claude API错误: \(message)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                guard let content = json["content"] as? [[String: Any]],
+                      let firstContent = content.first,
+                      let text = firstContent["text"] as? String else {
+                    showAPIError("Claude响应格式错误，无法提取AI回复内容", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                print("✅ 成功提取Claude回复: \(text.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                self.messages.append(aiResponse)
+                self.saveHistoryMessages()
+                
+                // 检查是否是最后一个AI
+                if index == totalCount - 1 {
+                    self.isLoading = false
+                    print("✅ 所有AI回复完成")
+                }
+                
+                print("✅ Claude API调用完全成功")
+            }
+        } catch {
+            showAPIError("Claude响应解析失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+        }
+    }
+    
+    // MARK: - Gemini API调用（多AI版本）
+    private func callGeminiAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        print("🚀 开始Gemini API调用（多AI版本）")
+        
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=\(apiKey)") else {
+            showAPIError("无效的Gemini API地址", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30.0
+        
+        let requestBody: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        [
+                            "text": message
+                        ]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "maxOutputTokens": 2000,
+                "temperature": 0.7
+            ]
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            showAPIError("Gemini请求数据编码失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("❌ Gemini网络错误: \(error.localizedDescription)")
+                    self.showAPIError("Gemini网络连接失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("📊 Gemini HTTP状态码: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        self.showAPIError("Gemini API调用失败，状态码: \(httpResponse.statusCode)", contact: contact, index: index, totalCount: totalCount)
+                        return
+                    }
+                }
+                
+                guard let data = data else {
+                    self.showAPIError("Gemini未收到响应数据", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                self.parseGeminiAPIResponseForMultiAI(data: data, contact: contact, index: index, totalCount: totalCount)
+            }
+        }.resume()
+    }
+    
+    private func parseGeminiAPIResponseForMultiAI(data: Data, contact: AIContact, index: Int, totalCount: Int) {
+        do {
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let error = json["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    showAPIError("Gemini API错误: \(message)", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                guard let candidates = json["candidates"] as? [[String: Any]],
+                      let firstCandidate = candidates.first,
+                      let content = firstCandidate["content"] as? [String: Any],
+                      let parts = content["parts"] as? [[String: Any]],
+                      let firstPart = parts.first,
+                      let text = firstPart["text"] as? String else {
+                    showAPIError("Gemini响应格式错误，无法提取AI回复内容", contact: contact, index: index, totalCount: totalCount)
+                    return
+                }
+                
+                print("✅ 成功提取Gemini回复: \(text.prefix(50))...")
+                
+                let aiResponse = ChatMessage(
+                    id: UUID().uuidString,
+                    content: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    isFromUser: false,
+                    timestamp: Date(),
+                    status: .sent,
+                    actions: [],
+                    isHistorical: false,
+                    aiSource: contact.name,
+                    isStreaming: false,
+                    avatar: nil,
+                    isFavorited: false,
+                    isEdited: false
+                )
+                
+                self.messages.append(aiResponse)
+                self.saveHistoryMessages()
+                
+                // 检查是否是最后一个AI
+                if index == totalCount - 1 {
+                    self.isLoading = false
+                    print("✅ 所有AI回复完成")
+                }
+                
+                print("✅ Gemini API调用完全成功")
+            }
+        } catch {
+            showAPIError("Gemini响应解析失败: \(error.localizedDescription)", contact: contact, index: index, totalCount: totalCount)
+        }
+    }
+    
+    // MARK: - 其他AI服务的占位函数（暂时返回错误信息）
+    private func callQwenAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        showAPIError("通义千问API暂未实现，请稍后使用", contact: contact, index: index, totalCount: totalCount)
+    }
+    
+    private func callChatGLMAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        showAPIError("智谱清言API暂未实现，请稍后使用", contact: contact, index: index, totalCount: totalCount)
+    }
+    
+    private func callKimiAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        showAPIError("Kimi API暂未实现，请稍后使用", contact: contact, index: index, totalCount: totalCount)
+    }
+    
+    private func callDoubaoAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        showAPIError("豆包API暂未实现，请稍后使用", contact: contact, index: index, totalCount: totalCount)
+    }
+    
+    private func callWenxinAPIDirectlyForMultiAI(message: String, apiKey: String, contact: AIContact, index: Int, totalCount: Int) {
+        showAPIError("文心一言API暂未实现，请稍后使用", contact: contact, index: index, totalCount: totalCount)
     }
 }
 
